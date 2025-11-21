@@ -13,6 +13,7 @@ type Context struct {
 	Codec             codec.Codec
 	InterfaceRegistry codectypes.InterfaceRegistry
 	RPCClient         string
+	EVMRPCCleint      string
 	APIClient         string
 }
 
@@ -28,24 +29,26 @@ func NewClient(ctx Context) *Client {
 }
 
 // NewContext creates a new Context with properly initialized codecs
-func NewContext(ctx context.Context, rpcClient, apiClient string) Context {
+func NewContext(ctx context.Context, rpcClient, evmRPCCleint, apiClient string) Context {
 	encodingConfig := app.MakeEncodingConfig()
 	return Context{
 		Context:           ctx,
 		Codec:             encodingConfig.Codec,
 		InterfaceRegistry: encodingConfig.InterfaceRegistry,
 		RPCClient:         rpcClient,
+		EVMRPCCleint:      evmRPCCleint,
 		APIClient:         apiClient,
 	}
 }
 
 // NewContextWithCodec creates a new Context with custom codec configuration
-func NewContextWithCodec(ctx context.Context, codec codec.Codec, interfaceRegistry codectypes.InterfaceRegistry, rpcClient, apiClient string) Context {
+func NewContextWithCodec(ctx context.Context, codec codec.Codec, interfaceRegistry codectypes.InterfaceRegistry, rpcClient, evmRPCCleint, apiClient string) Context {
 	return Context{
 		Context:           ctx,
 		Codec:             codec,
 		InterfaceRegistry: interfaceRegistry,
 		RPCClient:         rpcClient,
+		EVMRPCCleint:      evmRPCCleint,
 		APIClient:         apiClient,
 	}
 }
