@@ -45,22 +45,22 @@ func TestClientStructFields(t *testing.T) {
 	var client Client
 
 	// Test field assignments through embedding
-	client.Context.RPCClient = TestRPCClient
-	client.Context.EVMRPCCleint = TestEVMRPCClient
-	client.Context.APIClient = TestAPIClient
+	client.RPCClient = TestRPCClient
+	client.EVMRPCCleint = TestEVMRPCClient
+	client.APIClient = TestAPIClient
 	client.Context.Context = context.Background()
 
 	// Verify assignments through embedded Context
-	if client.Context.RPCClient != TestRPCClient {
-		t.Errorf("Expected client.Context.RPCClient to be %s, got %s", TestRPCClient, client.Context.RPCClient)
+	if client.RPCClient != TestRPCClient {
+		t.Errorf("Expected client.Context.RPCClient to be %s, got %s", TestRPCClient, client.RPCClient)
 	}
 
-	if client.Context.EVMRPCCleint != TestEVMRPCClient {
-		t.Errorf("Expected client.Context.EVMRPCCleint to be %s, got %s", TestEVMRPCClient, client.Context.EVMRPCCleint)
+	if client.EVMRPCCleint != TestEVMRPCClient {
+		t.Errorf("Expected client.Context.EVMRPCCleint to be %s, got %s", TestEVMRPCClient, client.EVMRPCCleint)
 	}
 
-	if client.Context.APIClient != TestAPIClient {
-		t.Errorf("Expected client.Context.APIClient to be %s, got %s", TestAPIClient, client.Context.APIClient)
+	if client.APIClient != TestAPIClient {
+		t.Errorf("Expected client.Context.APIClient to be %s, got %s", TestAPIClient, client.APIClient)
 	}
 }
 
@@ -105,16 +105,16 @@ func TestBasicClientCreation(t *testing.T) {
 		t.Error("Client's embedded Context field should not be nil")
 	}
 
-	if client.Context.RPCClient != TestRPCClient {
-		t.Errorf("Client's RPCClient should be %s, got %s", TestRPCClient, client.Context.RPCClient)
+	if client.RPCClient != TestRPCClient {
+		t.Errorf("Client's RPCClient should be %s, got %s", TestRPCClient, client.RPCClient)
 	}
 
-	if client.Context.EVMRPCCleint != TestEVMRPCClient {
-		t.Errorf("Client's EVMRPCCleint should be %s, got %s", TestEVMRPCClient, client.Context.EVMRPCCleint)
+	if client.EVMRPCCleint != TestEVMRPCClient {
+		t.Errorf("Client's EVMRPCCleint should be %s, got %s", TestEVMRPCClient, client.EVMRPCCleint)
 	}
 
-	if client.Context.APIClient != TestAPIClient {
-		t.Errorf("Client's APIClient should be %s, got %s", TestAPIClient, client.Context.APIClient)
+	if client.APIClient != TestAPIClient {
+		t.Errorf("Client's APIClient should be %s, got %s", TestAPIClient, client.APIClient)
 	}
 }
 
@@ -263,15 +263,15 @@ func TestClientFieldAccess(t *testing.T) {
 	client := Client{Context: ctx}
 
 	// Test direct access through embedded struct
-	if client.Context.RPCClient != TestRPCClient {
+	if client.RPCClient != TestRPCClient {
 		t.Error("Client should have access to RPCClient through embedded Context")
 	}
 
-	if client.Context.EVMRPCCleint != TestEVMRPCClient {
+	if client.EVMRPCCleint != TestEVMRPCClient {
 		t.Error("Client should have access to EVMRPCCleint through embedded Context")
 	}
 
-	if client.Context.APIClient != TestAPIClient {
+	if client.APIClient != TestAPIClient {
 		t.Error("Client should have access to APIClient through embedded Context")
 	}
 
@@ -282,7 +282,7 @@ func TestClientFieldAccess(t *testing.T) {
 
 // Benchmark tests
 func BenchmarkContextCreation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	if b.Loop() {
 		_ = Context{
 			Context:      context.Background(),
 			RPCClient:    TestRPCClient,
@@ -301,13 +301,13 @@ func BenchmarkClientCreation(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	if b.Loop() {
 		_ = Client{Context: ctx}
 	}
 }
 
 func BenchmarkFullSetup(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	if b.Loop() {
 		ctx := Context{
 			Context:      context.Background(),
 			RPCClient:    TestRPCClient,
