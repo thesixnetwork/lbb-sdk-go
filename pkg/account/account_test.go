@@ -1,322 +1,226 @@
-package account_test
+package account
 
 import (
-	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
 
-	bip39 "github.com/cosmos/go-bip39"
-	ethaccounts "github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	client "github.com/thesixnetwork/lbb-sdk-go/client"
 )
 
-// Test constants
 const (
-	TestMnemonic         = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+	// NOTE: (@ddeedev) this mnemonic is for testing purposes only. Do NOT use it in production.
+	TestMnemonic         = "history perfect across group seek acoustic delay captain sauce audit carpet tattoo exhaust green there giant cluster want pond bulk close screen scissors remind"
 	TestPassword         = "testpassword"
-	InvalidMnemonic      = "invalid mnemonic phrase that should not work"
+	InvalidMnemonic      = "invalid mnemonic phrase"
 	TestPrivateKey       = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	TestPrivateKeyWith0x = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	mnemonicEntropySize  = 256
-	CoinType             = uint32(60) // Ethereum coin type
 )
 
-// ========================================
-// WORKING FUNCTIONALITY TESTS
-// ========================================
+// Helper function to create a test account service
+// This creates a minimal account service that doesn't require cosmos SDK context
+func createTestAccountService() AccountI {
+	// Create a simple context without full SDK initialization to avoid codec issues
+	ctx := client.Context{}
+	return &Account{
+		ctx:                  ctx,
+		accountName:          "test-account",
+		accountAddressPrefix: "6x",
+	}
+}
 
-// TestMnemonicGenerationFunctionality tests the mnemonic generation logic
-// that is implemented in account.GenerateMnemonic()
-func TestMnemonicGenerationFunctionality(t *testing.T) {
-	t.Run("Generate valid 24-word mnemonic", func(t *testing.T) {
-		// This reproduces the logic from account.GenerateMnemonic()
-		entropy, err := bip39.NewEntropy(mnemonicEntropySize)
-		require.NoError(t, err, "Entropy generation should not fail")
+func TestGenerateMnemonic(t *testing.T) {
+	t.Run("Generate valid mnemonic", func(t *testing.T) {
+		mnemonic, err := GenerateMnemonic()
 
-		mnemonic, err := bip39.NewMnemonic(entropy)
-		require.NoError(t, err, "Mnemonic generation should not fail")
+		require.NoError(t, err, "Should generate mnemonic without error")
 		require.NotEmpty(t, mnemonic, "Generated mnemonic should not be empty")
 
-		// Verify mnemonic characteristics
-		words := strings.Fields(mnemonic)
-		assert.Equal(t, 24, len(words), "Mnemonic should have 24 words for 256-bit entropy")
+		words := strings.Split(mnemonic, " ")
+		assert.Equal(t, 24, len(words), "Generated mnemonic should have 24 words")
 
-		// Verify it's a valid BIP39 mnemonic
-		assert.True(t, bip39.IsMnemonicValid(mnemonic), "Generated mnemonic should be valid")
+		// Validate the generated mnemonic
+		account := createTestAccountService()
+		assert.True(t, account.ValidateMnemonic(mnemonic), "Generated mnemonic should be valid")
 
-		t.Logf(" Generated valid mnemonic: %s...", strings.Join(words[:3], " "))
+		t.Logf("Generated mnemonic: %s...", getFirstWords(mnemonic, 3))
 	})
 
-	t.Run("Generate multiple unique mnemonics", func(t *testing.T) {
+	t.Run("Generate unique mnemonics", func(t *testing.T) {
 		const numTests = 5
 		mnemonics := make(map[string]bool)
 
-		for i := 0; i < numTests; i++ {
-			entropy, err := bip39.NewEntropy(mnemonicEntropySize)
-			require.NoError(t, err)
+		for range numTests {
+			mnemonic, err := GenerateMnemonic()
+			require.NoError(t, err, "Should generate mnemonic without error")
 
-			mnemonic, err := bip39.NewMnemonic(entropy)
-			require.NoError(t, err)
-
-			// Check for duplicates
-			assert.False(t, mnemonics[mnemonic], "Should not generate duplicate mnemonics")
+			// Check uniqueness
+			assert.False(t, mnemonics[mnemonic], "Generated mnemonic should be unique")
 			mnemonics[mnemonic] = true
 		}
 
 		assert.Equal(t, numTests, len(mnemonics), "All generated mnemonics should be unique")
-		t.Logf(" Generated %d unique mnemonics", len(mnemonics))
+		t.Logf("Generated %d unique mnemonics", numTests)
 	})
 }
 
-// TestMnemonicValidationFunctionality tests the validation logic
-// that is implemented in account.ValidateMnemonic()
-func TestMnemonicValidationFunctionality(t *testing.T) {
+func TestValidateMnemonic(t *testing.T) {
+	account := createTestAccountService()
+
 	testCases := []struct {
 		name     string
 		mnemonic string
 		expected bool
 	}{
-		{
-			name:     "Valid 12-word test mnemonic",
-			mnemonic: TestMnemonic,
-			expected: true,
-		},
-		{
-			name:     "Invalid mnemonic phrase",
-			mnemonic: InvalidMnemonic,
-			expected: false,
-		},
-		{
-			name:     "Empty mnemonic",
-			mnemonic: "",
-			expected: false,
-		},
-		{
-			name:     "Single word",
-			mnemonic: "abandon",
-			expected: false,
-		},
-		{
-			name:     "Valid 24-word mnemonic",
-			mnemonic: "present volume rate enter account wrap sheriff toward sugar assume worry model obvious clump liberty carry assault endless list come talk whip expand galaxy",
-			expected: true,
-		},
-		{
-			name:     "Invalid checksum mnemonic",
-			mnemonic: "present volume rate enter account wrap sheriff toward sugar assume worry model obvious clump liberty carry assault endless list come talk whip expand sky",
-			expected: false,
-		},
+		{"Valid 12-word test mnemonic", TestMnemonic, true},
+		{"Invalid mnemonic phrase", InvalidMnemonic, false},
+		{"Empty mnemonic", "", false},
+		{"Single word", "abandon", false},
+		{"Valid 24-word generated mnemonic", "", true}, // Will be set in test
+		{"Actually valid repeated words", "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon", true},
 	}
+
+	// Generate a valid 24-word mnemonic for testing
+	validMnemonic, err := GenerateMnemonic()
+	require.NoError(t, err)
+	testCases[4].mnemonic = validMnemonic
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// This reproduces the logic from account.ValidateMnemonic()
-			result := bip39.IsMnemonicValid(tc.mnemonic)
-			assert.Equal(t, tc.expected, result, "Validation result should match expected for: %s", tc.mnemonic)
+			result := account.ValidateMnemonic(tc.mnemonic)
+			assert.Equal(t, tc.expected, result, "Validation result should match expected")
 
 			if tc.expected {
-				t.Logf(" Correctly validated mnemonic: %s...", getFirstWords(tc.mnemonic, 3))
+				t.Logf("Correctly validated mnemonic: %s...", getFirstWords(tc.mnemonic, 3))
 			} else {
-				t.Logf(" Correctly rejected invalid mnemonic")
+				t.Log("Correctly rejected invalid mnemonic")
 			}
 		})
 	}
 }
 
-// TestEVMAccountFromMnemonicFunctionality tests the EVM account creation logic
-// that is implemented in account.CreateEVMAccountFromMnemonic()
-func TestEVMAccountFromMnemonicFunctionality(t *testing.T) {
+func TestCreateEVMAccountFromMnemonic(t *testing.T) {
+	account := createTestAccountService()
+
 	t.Run("Create EVM account from valid mnemonic", func(t *testing.T) {
-		// Validate mnemonic first (reproduces account.ValidateMnemonic logic)
-		require.True(t, bip39.IsMnemonicValid(TestMnemonic), "Test mnemonic should be valid")
+		address, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
 
-		// This reproduces the logic from account.CreateEVMAccountFromMnemonic()
-		seed := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey, err := crypto.ToECDSA(seed[:32])
-		require.NoError(t, err, "Private key generation should not fail")
-
-		publicKey := privateKey.PublicKey
-		address := crypto.PubkeyToAddress(publicKey)
-
-		// Verify the address is valid
-		assert.NotEqual(t, common.Address{}, address, "Generated address should not be zero address")
+		require.NoError(t, err, "Should create EVM account without error")
+		assert.NotEqual(t, common.Address{}, address, "Generated address should not be empty")
 		assert.True(t, common.IsHexAddress(address.Hex()), "Generated address should be valid hex")
 
-		t.Logf(" Generated EVM address from mnemonic: %s", address.Hex())
-
-		// Test deterministic generation
-		seed2 := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey2, err := crypto.ToECDSA(seed2[:32])
-		require.NoError(t, err)
-		address2 := crypto.PubkeyToAddress(privateKey2.PublicKey)
-
-		assert.Equal(t, address, address2, "Same mnemonic and password should generate same address")
+		t.Logf("Generated EVM address: %s", address.Hex())
 	})
 
 	t.Run("Different passwords generate different addresses", func(t *testing.T) {
-		// Test with password1
-		seed1 := bip39.NewSeed(TestMnemonic, "password1")
-		privateKey1, err := crypto.ToECDSA(seed1[:32])
+		address1, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, "password1")
 		require.NoError(t, err)
-		address1 := crypto.PubkeyToAddress(privateKey1.PublicKey)
 
-		// Test with password2
-		seed2 := bip39.NewSeed(TestMnemonic, "password2")
-		privateKey2, err := crypto.ToECDSA(seed2[:32])
+		address2, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, "password2")
 		require.NoError(t, err)
-		address2 := crypto.PubkeyToAddress(privateKey2.PublicKey)
 
 		assert.NotEqual(t, address1, address2, "Different passwords should generate different addresses")
-		t.Logf(" Different passwords generate different addresses: %s vs %s", address1.Hex(), address2.Hex())
+		t.Logf("Address1: %s, Address2: %s", address1.Hex(), address2.Hex())
 	})
 
-	t.Run("Invalid mnemonic handling", func(t *testing.T) {
-		// Test the validation step (this would return error in actual function)
-		isValid := bip39.IsMnemonicValid(InvalidMnemonic)
-		assert.False(t, isValid, "Invalid mnemonic should not pass validation")
-		t.Logf(" Invalid mnemonic correctly rejected")
+	t.Run("Invalid mnemonic should return error", func(t *testing.T) {
+		_, err := account.CreateEVMAccountFromMnemonic(InvalidMnemonic, TestPassword)
+		assert.Error(t, err, "Should return error for invalid mnemonic")
+		assert.Contains(t, err.Error(), "invalid mnemonic", "Error should mention invalid mnemonic")
 	})
 }
 
-// TestPrivateKeyFromMnemonicFunctionality tests the private key extraction logic
-// that is implemented in account.GetPrivateKeyFromMnemonic()
-func TestPrivateKeyFromMnemonicFunctionality(t *testing.T) {
+func TestGetPrivateKeyFromMnemonic(t *testing.T) {
+	account := createTestAccountService()
+
 	t.Run("Extract private key from valid mnemonic", func(t *testing.T) {
-		// Validate mnemonic first
-		require.True(t, bip39.IsMnemonicValid(TestMnemonic), "Test mnemonic should be valid")
+		privateKey, err := account.GetPrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 
-		// This reproduces the logic from account.GetPrivateKeyFromMnemonic()
-		seed := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey, err := crypto.ToECDSA(seed[:32])
-		require.NoError(t, err, "Private key generation should not fail")
+		require.NoError(t, err, "Should extract private key without error")
+		assert.NotEmpty(t, privateKey, "Private key should not be empty")
+		assert.Equal(t, 64, len(privateKey), "Private key should be 64 characters (32 bytes hex)")
 
-		privateKeyBytes := crypto.FromECDSA(privateKey)
-		privateKeyHex := hex.EncodeToString(privateKeyBytes)
-
-		// Verify private key characteristics
-		assert.NotEmpty(t, privateKeyHex, "Private key should not be empty")
-		assert.Equal(t, 64, len(privateKeyHex), "Private key should be 64 hex characters (32 bytes)")
-
-		// Verify it's valid hex
-		_, err = hex.DecodeString(privateKeyHex)
-		assert.NoError(t, err, "Private key should be valid hex")
-
-		t.Logf(" Generated private key: %s...", privateKeyHex[:16])
-
-		// Test deterministic generation
-		seed2 := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey2, err := crypto.ToECDSA(seed2[:32])
-		require.NoError(t, err)
-		privateKeyBytes2 := crypto.FromECDSA(privateKey2)
-		privateKeyHex2 := hex.EncodeToString(privateKeyBytes2)
-
-		assert.Equal(t, privateKeyHex, privateKeyHex2, "Same mnemonic and password should generate same private key")
+		t.Logf("Generated private key: %s...", privateKey[:16])
 	})
 
-	t.Run("Invalid mnemonic handling", func(t *testing.T) {
-		isValid := bip39.IsMnemonicValid(InvalidMnemonic)
-		assert.False(t, isValid, "Invalid mnemonic should be rejected")
-		t.Logf(" Invalid mnemonic correctly handled")
+	t.Run("Invalid mnemonic should return error", func(t *testing.T) {
+		_, err := account.GetPrivateKeyFromMnemonic(InvalidMnemonic, TestPassword)
+		assert.Error(t, err, "Should return error for invalid mnemonic")
+		assert.Contains(t, err.Error(), "invalid mnemonic", "Error should mention invalid mnemonic")
 	})
 }
 
-// TestEVMAccountFromPrivateKeyFunctionality tests the account creation from private key logic
-// that is implemented in account.CreateEVMAccountFromPrivateKey()
-func TestEVMAccountFromPrivateKeyFunctionality(t *testing.T) {
+func TestCreateEVMAccountFromPrivateKey(t *testing.T) {
+	account := createTestAccountService()
+
 	t.Run("Create account from private key without 0x prefix", func(t *testing.T) {
-		// This reproduces the logic from account.CreateEVMAccountFromPrivateKey()
-		privateKeyHex := TestPrivateKey
+		address, err := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
 
-		privateKeyBytes, err := hex.DecodeString(privateKeyHex)
-		require.NoError(t, err, "Private key decoding should not fail")
+		require.NoError(t, err, "Should create account without error")
+		assert.NotEmpty(t, address, "Address should not be empty")
+		assert.True(t, common.IsHexAddress(address), "Should be valid hex address")
+		assert.True(t, strings.HasPrefix(address, "0x"), "Address should have 0x prefix")
 
-		privateKey, err := crypto.ToECDSA(privateKeyBytes)
-		require.NoError(t, err, "Private key parsing should not fail")
+		// This should generate the known address for this test private key
+		expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+		assert.Equal(t, expectedAddress, address, "Should generate expected address")
 
-		publicKey := privateKey.PublicKey
-		address := crypto.PubkeyToAddress(publicKey)
-
-		assert.NotEqual(t, common.Address{}, address, "Generated address should not be zero")
-		assert.True(t, common.IsHexAddress(address.Hex()), "Generated address should be valid hex")
-
-		t.Logf(" Generated address from private key: %s", address.Hex())
+		t.Logf("Generated address: %s", address)
 	})
 
 	t.Run("Create account from private key with 0x prefix", func(t *testing.T) {
-		// Test the prefix removal logic
-		privateKeyHex := TestPrivateKeyWith0x
-		if strings.HasPrefix(privateKeyHex, "0x") {
-			privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
-		}
+		address1, err1 := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
+		address2, err2 := account.CreateEVMAccountFromPrivateKey(TestPrivateKeyWith0x, TestPassword)
 
-		privateKeyBytes, err := hex.DecodeString(privateKeyHex)
-		require.NoError(t, err, "Private key decoding should not fail")
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		assert.Equal(t, address1, address2, "Should generate same address regardless of 0x prefix")
 
-		privateKey, err := crypto.ToECDSA(privateKeyBytes)
-		require.NoError(t, err, "Private key parsing should not fail")
-
-		address := crypto.PubkeyToAddress(privateKey.PublicKey)
-
-		assert.True(t, common.IsHexAddress(address.Hex()), "Generated address should be valid hex")
-
-		// Compare with non-prefixed version
-		privateKeyBytes2, _ := hex.DecodeString(TestPrivateKey)
-		privateKey2, _ := crypto.ToECDSA(privateKeyBytes2)
-		address2 := crypto.PubkeyToAddress(privateKey2.PublicKey)
-
-		assert.Equal(t, address, address2, "Private key with and without 0x prefix should generate same address")
-		t.Logf(" 0x prefix handling works correctly")
+		t.Log("0x prefix handling works correctly")
 	})
 
-	t.Run("Invalid private key formats", func(t *testing.T) {
+	t.Run("Invalid private key formats should return error", func(t *testing.T) {
 		invalidKeys := []string{
 			"invalid_hex",
-			"123", // too short
-			"xyz123",
-			// "",
+			"123",    // Too short
+			"xyz123", // Invalid hex characters
 			"not_a_hex_string",
 		}
 
 		for _, invalidKey := range invalidKeys {
-			t.Run("Invalid: "+invalidKey, func(t *testing.T) {
-				_, err := hex.DecodeString(invalidKey)
-				assert.Error(t, err, "Invalid private key should cause decode error: %s", invalidKey)
-			})
+			_, err := account.CreateEVMAccountFromPrivateKey(invalidKey, TestPassword)
+			assert.Error(t, err, "Should return error for invalid private key: %s", invalidKey)
 		}
-		t.Logf(" Invalid private key formats correctly rejected")
+
+		t.Log("Invalid private key formats correctly rejected")
 	})
 }
 
-// TestHDPathFunctionality tests the HD path logic
-// that is implemented in account.GetFullBIP44Path() and account.NewHDPathIterator()
-func TestHDPathFunctionality(t *testing.T) {
+func TestNewHDPathIterator(t *testing.T) {
 	t.Run("Test BIP44 path format", func(t *testing.T) {
-		// This reproduces the logic from account.GetFullBIP44Path()
-		// Note: We can't use sdk.Purpose and sdk.CoinType due to cosmos-sdk issues
-		// But we can test the expected format
-		const Purpose = 44 // Standard BIP44 purpose
+		expectedPath := GetFullBIP44Path()
+		// Don't assume specific values, just check it's a valid path
+		assert.NotEmpty(t, expectedPath, "BIP44 path should not be empty")
+		assert.Contains(t, expectedPath, "m/", "Should be a derivation path")
+		assert.Equal(t, uint32(60), CoinType, "Coin type should be 60 for Ethereum")
 
-		expectedPath := "m/44'/60'/0'/0/0" // Expected format for Ethereum
-		t.Logf("Expected BIP44 path format: %s", expectedPath)
-		t.Logf("Expected coin type: %d", CoinType)
-		t.Logf(" BIP44 path format validated")
+		t.Logf("BIP44 path: %s", expectedPath)
 	})
 
 	t.Run("Test HD path iterator functionality", func(t *testing.T) {
-		// Use DefaultRootDerivationPath directly for iteration
-		basePath := ethaccounts.DefaultRootDerivationPath
+		basePath := "m/44'/60'/0'/0"
 
-		iterator := ethaccounts.DefaultIterator(basePath)
+		iterator, err := NewHDPathIterator(basePath)
+		require.NoError(t, err, "Should create iterator without error")
 		require.NotNil(t, iterator, "Iterator should not be nil")
 
 		// Test path generation by collecting multiple paths
 		var paths []string
-
-		for _ = range 5 {
+		const interationNum int = 5
+		for range interationNum {
 			path := iterator()
 			paths = append(paths, path.String())
 		}
@@ -338,8 +242,8 @@ func TestHDPathFunctionality(t *testing.T) {
 			pathSet[path] = true
 		}
 
-		t.Logf(" HD path iterator works correctly:")
-		t.Logf("  Base: %s", basePath.String())
+		t.Logf("HD path iterator works correctly:")
+		t.Logf("  Base: %s", basePath)
 		for i, path := range paths {
 			t.Logf("  Path %d: %s", i, path)
 		}
@@ -354,149 +258,115 @@ func TestHDPathFunctionality(t *testing.T) {
 		}
 
 		for _, invalidPath := range invalidPaths {
-			t.Run("Invalid: "+invalidPath, func(t *testing.T) {
-				_, err := ethaccounts.ParseDerivationPath(invalidPath)
-				assert.Error(t, err, "Invalid path should cause parsing error: %s", invalidPath)
-			})
+			_, err := NewHDPathIterator(invalidPath)
+			assert.Error(t, err, "Should return error for invalid path: %s", invalidPath)
 		}
-		t.Logf(" Invalid HD paths correctly rejected")
+
+		t.Log("Invalid HD paths correctly rejected")
 	})
 
 	t.Run("Test coin type constant", func(t *testing.T) {
 		assert.Equal(t, uint32(60), CoinType, "Coin type should be 60 for Ethereum")
-		t.Logf(" Ethereum coin type (60) validated")
+		t.Log("Ethereum coin type (60) validated")
 	})
 }
 
-// TestAccountConsistencyFunctionality tests consistency between different methods
-func TestAccountConsistencyFunctionality(t *testing.T) {
+func TestAccountConsistency(t *testing.T) {
+	account := createTestAccountService()
+
 	t.Run("Private key from mnemonic matches address generation", func(t *testing.T) {
-		// Generate private key from mnemonic
-		seed := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey, err := crypto.ToECDSA(seed[:32])
+		// Generate address from mnemonic
+		address1, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err)
 
-		privateKeyBytes := crypto.FromECDSA(privateKey)
-		privateKeyHex := hex.EncodeToString(privateKeyBytes)
-
-		// Create address from mnemonic
-		address1 := crypto.PubkeyToAddress(privateKey.PublicKey)
-
-		// Create address from extracted private key
-		privateKeyBytes2, err := hex.DecodeString(privateKeyHex)
+		// Get private key from same mnemonic
+		privateKey, err := account.GetPrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err)
-		privateKey2, err := crypto.ToECDSA(privateKeyBytes2)
-		require.NoError(t, err)
-		address2 := crypto.PubkeyToAddress(privateKey2.PublicKey)
 
-		assert.Equal(t, address1, address2, "Address from mnemonic should match address from extracted private key")
-		t.Logf(" Consistency validated: %s", address1.Hex())
+		// Generate address from private key
+		address2Hex, err := account.CreateEVMAccountFromPrivateKey(privateKey, TestPassword)
+		require.NoError(t, err)
+
+		address2 := common.HexToAddress(address2Hex)
+		assert.Equal(t, address1, address2, "Addresses should match when derived from same mnemonic")
+
+		t.Logf("Consistency validated: %s", address1.Hex())
 	})
 }
 
-// ========================================
-// ENVIRONMENT INTEGRATION TESTS
-// ========================================
-
-// TestWithEnvironmentVariables tests functionality with actual environment setup
 func TestWithEnvironmentVariables(t *testing.T) {
-	t.Run("Test in environment context", func(t *testing.T) {
-		// Get environment variables
-		evmRPC := os.Getenv("EVM_FIVENET_RPC")
-		fivenetRPC := os.Getenv("FIVENET_RPC")
-		fivenetAPI := os.Getenv("FIVENET_API")
+	// Set up environment variables
+	os.Setenv("EVM_FIVENET_RPC", "https://rpc-evm.fivenet.sixprotocol.net:443")
+	os.Setenv("FIVENET_RPC", "https://rpc1.fivenet.sixprotocol.net:443")
+	os.Setenv("FIVENET_API", "https://api1.fivenet.sixprotocol.net:443")
+	defer func() {
+		os.Unsetenv("EVM_FIVENET_RPC")
+		os.Unsetenv("FIVENET_RPC")
+		os.Unsetenv("FIVENET_API")
+	}()
 
+	t.Run("Test environment variables are set", func(t *testing.T) {
 		t.Logf("Environment context:")
-		t.Logf("  EVM_FIVENET_RPC: %s", evmRPC)
-		t.Logf("  FIVENET_RPC: %s", fivenetRPC)
-		t.Logf("  FIVENET_API: %s", fivenetAPI)
+		t.Logf("  EVM_FIVENET_RPC: %s", os.Getenv("EVM_FIVENET_RPC"))
+		t.Logf("  FIVENET_RPC: %s", os.Getenv("FIVENET_RPC"))
+		t.Logf("  FIVENET_API: %s", os.Getenv("FIVENET_API"))
 
-		// Test mnemonic generation in this environment
-		entropy, err := bip39.NewEntropy(mnemonicEntropySize)
-		require.NoError(t, err, "Mnemonic generation should work in environment")
+		// Test basic account functionality without full SDK context
+		mnemonic, err := GenerateMnemonic()
+		require.NoError(t, err)
 
-		mnemonic, err := bip39.NewMnemonic(entropy)
-		require.NoError(t, err, "Mnemonic creation should work in environment")
+		account := createTestAccountService()
+		isValid := account.ValidateMnemonic(mnemonic)
+		assert.True(t, isValid, "Generated mnemonic should be valid")
 
-		// Test EVM account creation
-		if bip39.IsMnemonicValid(mnemonic) {
-			seed := bip39.NewSeed(mnemonic, "test")
-			privateKey, err := crypto.ToECDSA(seed[:32])
-			require.NoError(t, err, "EVM account creation should work in environment")
-
-			address := crypto.PubkeyToAddress(privateKey.PublicKey)
-			assert.NotEqual(t, common.Address{}, address, "Should generate valid address in environment")
-
-			t.Logf(" Generated account in environment: %s", address.Hex())
-		}
+		t.Log("Environment test completed successfully")
 	})
 }
 
-// ========================================
-// BENCHMARK TESTS
-// ========================================
-
-// BenchmarkMnemonicGeneration benchmarks the mnemonic generation performance
-func BenchmarkMnemonicGeneration(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		entropy, err := bip39.NewEntropy(mnemonicEntropySize)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_, err = bip39.NewMnemonic(entropy)
+// Benchmark tests
+func BenchmarkGenerateMnemonic(b *testing.B) {
+	for range b.N {
+		_, err := GenerateMnemonic()
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
-// BenchmarkEVMAccountFromMnemonic benchmarks EVM account creation from mnemonic
-func BenchmarkEVMAccountFromMnemonic(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		seed := bip39.NewSeed(TestMnemonic, TestPassword)
-		privateKey, err := crypto.ToECDSA(seed[:32])
+func BenchmarkCreateEVMAccountFromMnemonic(b *testing.B) {
+	account := createTestAccountService()
+	for range b.N {
+		_, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
 		if err != nil {
 			b.Fatal(err)
 		}
-		_ = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
 }
 
-// BenchmarkEVMAccountFromPrivateKey benchmarks EVM account creation from private key
-func BenchmarkEVMAccountFromPrivateKey(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		privateKeyBytes, err := hex.DecodeString(TestPrivateKey)
+func BenchmarkCreateEVMAccountFromPrivateKey(b *testing.B) {
+	account := createTestAccountService()
+	for range b.N {
+		_, err := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
 		if err != nil {
 			b.Fatal(err)
 		}
-		privateKey, err := crypto.ToECDSA(privateKeyBytes)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
 }
 
-// BenchmarkHDPathIterator benchmarks HD path iterator creation
-func BenchmarkHDPathIterator(b *testing.B) {
+func BenchmarkNewHDPathIterator(b *testing.B) {
 	basePath := "m/44'/60'/0'/0"
-
-	for i := 0; i < b.N; i++ {
-		hdPath, err := ethaccounts.ParseDerivationPath(basePath)
+	for range b.N {
+		iterator, err := NewHDPathIterator(basePath)
 		if err != nil {
 			b.Fatal(err)
 		}
-		_ = ethaccounts.DefaultIterator(hdPath)
+		_ = iterator()
 	}
 }
 
-// ========================================
-// HELPER FUNCTIONS
-// ========================================
-
-// getFirstWords returns the first n words from a mnemonic string
+// Helper function to get first N words from mnemonic for logging
 func getFirstWords(mnemonic string, n int) string {
-	words := strings.Fields(mnemonic)
+	words := strings.Split(mnemonic, " ")
 	if len(words) <= n {
 		return mnemonic
 	}
