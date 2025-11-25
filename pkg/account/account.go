@@ -11,7 +11,6 @@ import (
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bip39 "github.com/cosmos/go-bip39"
 )
@@ -26,27 +25,26 @@ type AccountI interface {
 
 type AccountService interface {
 	ValidateMnemonic(mnemonic string) bool
+	GetPrivateKeyFromMnemonic(mnemonic, password string) (string, error)
 	CreateBech32AccountFromMnemonic(mnemonic, password string) (sdk.AccAddress, error)
 	CreateEVMAccountFromMnemonic(mnemonic, password string) (common.Address, error)
-	CreateEVMAccountFromPrivateKey(pk, password string) (string, error)
-	GetPrivateKeyFromMnemonic(mnemonic, password string) (string, error)
+	CreateEVMAccountFromPrivateKey(pk string, password string) (string, error)
 }
 
 type Account struct {
-	ctx                  client.Context
-	accountAddressPrefix string
-	accountName          string
-	Keyring              keyring.Keyring
-	privateKey           *ecdsa.PrivateKey
+	ctx         client.Context
+	accountName string
+	mnemonic    string
+	privateKey  *ecdsa.PrivateKey
 }
 
 var _ AccountI = (*Account)(nil)
 
-func NewAccountService(ctx client.Context, accountName string, accountAddressPrefix string) AccountI {
+func NewAccountService(ctx client.Context, accountName, mnemonic string) AccountI {
 	return &Account{
-		ctx:                  ctx,
-		accountName:          accountName,
-		accountAddressPrefix: accountAddressPrefix,
+		ctx:         ctx,
+		accountName: accountName,
+		mnemonic:    mnemonic,
 	}
 }
 
@@ -66,25 +64,20 @@ func GenerateMnemonic() (string, error) {
 }
 
 func (a *Account) ValidateMnemonic(mnemonic string) bool {
-	if !bip39.IsMnemonicValid(mnemonic) {
-		return false
-	}
-	return true
+	return bip39.IsMnemonicValid(mnemonic)
 }
 
 func (a *Account) CreateBech32AccountFromMnemonic(mnemonic, password string) (sdk.AccAddress, error) {
 	if !a.ValidateMnemonic(mnemonic) {
 		return sdk.AccAddress{}, errors.New("invalid mnemonic")
 	}
-	kb := keyring.NewInMemory(a.ctx.Codec)
+
 	path := GetFullBIP44Path()
 
-	kr, err := kb.NewAccount(a.accountName, mnemonic, password, path, hd.Secp256k1)
+	kr, err := a.ctx.GetKeyring().NewAccount(a.accountName, mnemonic, password, path, hd.Secp256k1)
 	if err != nil {
 		return sdk.AccAddress{}, err
 	}
-
-	a.Keyring = kb
 
 	account, err := kr.GetAddress()
 	if err != nil {
@@ -130,9 +123,7 @@ func (a *Account) GetPrivateKeyFromMnemonic(mnemonic, password string) (string, 
 }
 
 func (a *Account) CreateEVMAccountFromPrivateKey(pk string, password string) (string, error) {
-	if strings.HasPrefix(pk, "0x") {
-		pk = strings.TrimPrefix(pk, "0x")
-	}
+	pk = strings.TrimPrefix(pk, "0x")
 
 	privateKeyBytes, err := hex.DecodeString(pk)
 	if err != nil {
