@@ -2,16 +2,14 @@ package account
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	bip39 "github.com/cosmos/go-bip39"
 )
 
@@ -20,125 +18,114 @@ const (
 )
 
 type AccountI interface {
-	AccountService
-}
-
-type AccountService interface {
+	GetCosmosAddress() sdk.AccAddress
+	GetEVMAddress() common.Address
 	ValidateMnemonic(mnemonic string) bool
-	GetPrivateKeyFromMnemonic(mnemonic, password string) (string, error)
-	CreateBech32AccountFromMnemonic(mnemonic, password string) (sdk.AccAddress, error)
-	CreateEVMAccountFromMnemonic(mnemonic, password string) (common.Address, error)
-	CreateEVMAccountFromPrivateKey(pk string, password string) (string, error)
+	GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error)
+	GetBalance() (sdk.Coins, error)
+	GetCosmosBalane() (sdk.Coin, error)
+	GetEVMBalane() (sdk.Coin, error)
 }
 
 type Account struct {
 	client.Client
-	accountName string
-	mnemonic    string
-	privateKey  *ecdsa.PrivateKey
+	mnemonic      string
+	evmAddress    common.Address
+	cosmosAddress sdk.AccAddress
 }
 
 var _ AccountI = (*Account)(nil)
 
-func NewAccountService(ctx client.Client, accountName, mnemonic string) AccountI {
+func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Account {
+	evmAddress, err := GetAddressFromMnemonic(mnemonic, password)
+	if err != nil {
+		return nil
+	}
+
+	cosmosAddress, err := GetBech32AccountFromMnemonic(ctx.GetKeyring(), accountName, mnemonic, password)
+	if err != nil {
+		return nil
+	}
+
 	return &Account{
-		Client:      ctx,
-		accountName: accountName,
-		mnemonic:    mnemonic,
+		Client:        ctx,
+		mnemonic:      mnemonic,
+		evmAddress:    evmAddress,
+		cosmosAddress: cosmosAddress,
 	}
-}
-
-func GenerateMnemonic() (string, error) {
-	// read entropy seed straight from tmcrypto.Rand and convert to mnemonic
-	entropy, err := bip39.NewEntropy(mnemonicEntropySize)
-	if err != nil {
-		return "", err
-	}
-
-	mnemonic, err := bip39.NewMnemonic(entropy)
-	if err != nil {
-		return "", err
-	}
-
-	return mnemonic, nil
 }
 
 func (a *Account) ValidateMnemonic(mnemonic string) bool {
 	return bip39.IsMnemonicValid(mnemonic)
 }
 
-func (a *Account) CreateBech32AccountFromMnemonic(mnemonic, password string) (sdk.AccAddress, error) {
-	if !a.ValidateMnemonic(mnemonic) {
-		return sdk.AccAddress{}, errors.New("invalid mnemonic")
+func (*Account) GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error) {
+	if bip39.IsMnemonicValid(mnemonic) {
+		return &ecdsa.PrivateKey{}, errors.New("invalid mnemonic")
 	}
 
-	path := GetFullBIP44Path()
-
-	kr, err := a.Client.GetKeyring().NewAccount(a.accountName, mnemonic, password, path, hd.Secp256k1)
-	if err != nil {
-		return sdk.AccAddress{}, err
-	}
-
-	account, err := kr.GetAddress()
-	if err != nil {
-		return sdk.AccAddress{}, err
-	}
-
-	return account, nil
-}
-
-func (a *Account) CreateEVMAccountFromMnemonic(mnemonic string, password string) (common.Address, error) {
-	if !a.ValidateMnemonic(mnemonic) {
-		return common.Address{}, errors.New("invalid mnemonic")
-	}
 	seed := bip39.NewSeed(mnemonic, password)
 
 	privateKey, err := crypto.ToECDSA(seed[:32])
 	if err != nil {
-		return common.Address{}, err
+		return &ecdsa.PrivateKey{}, err
 	}
 
-	a.privateKey = privateKey
-
-	pubkey := privateKey.PublicKey
-	return crypto.PubkeyToAddress(pubkey), nil
+	return privateKey, nil
 }
 
-func (a *Account) GetPrivateKeyFromMnemonic(mnemonic, password string) (string, error) {
-	if !a.ValidateMnemonic(mnemonic) {
-		return "", errors.New("invalid mnemonic")
-	}
-	// Implementation here
-	seed := bip39.NewSeed(mnemonic, password)
+func (a *Account) GetBalance() (sdk.Coins, error) {
+	ctx := a.GetClientCTX()
+	queryClient := banktypes.NewQueryClient(ctx)
 
-	privateKey, err := crypto.ToECDSA(seed[:32])
+	res, err := queryClient.AllBalances(a.Context, &banktypes.QueryAllBalancesRequest{
+		Address: a.cosmosAddress.String(),
+	})
 	if err != nil {
-		return "", err
+		return sdk.Coins{}, err
 	}
 
-	privateKeyBytes := crypto.FromECDSA(privateKey)
-	privateKeyHex := hex.EncodeToString(privateKeyBytes)
-
-	return privateKeyHex, nil
+	return res.Balances, nil
 }
 
-func (a *Account) CreateEVMAccountFromPrivateKey(pk string, password string) (string, error) {
-	pk = strings.TrimPrefix(pk, "0x")
+func (a *Account) GetCosmosBalane() (sdk.Coin, error) {
+	ctx := a.GetClientCTX()
+	queryClient := banktypes.NewQueryClient(ctx)
 
-	privateKeyBytes, err := hex.DecodeString(pk)
+	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
+		Address: a.cosmosAddress.String(),
+		Denom:   "usix",
+	})
 	if err != nil {
-		return "", errors.New("invalid private key format")
+		return sdk.Coin{}, err
 	}
 
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
+	return *res.Balance, nil
+}
+
+func (a *Account) GetEVMBalane() (sdk.Coin, error) {
+	ctx := a.GetClientCTX()
+	queryClient := banktypes.NewQueryClient(ctx)
+
+	addr := a.evmAddress.Bytes()
+	bech32AccAddress := sdk.AccAddress(addr)
+
+	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
+		Address: bech32AccAddress.String(),
+		Denom:   "asix",
+	})
+
 	if err != nil {
-		return "", err
+		return sdk.Coin{}, err
 	}
 
-	a.privateKey = privateKey
+	return *res.Balance, nil
+}
 
-	pubkey := privateKey.PublicKey
-	address := crypto.PubkeyToAddress(pubkey)
+func (a *Account) GetCosmosAddress() sdk.AccAddress {
+	return a.cosmosAddress
+}
 
-	return address.Hex(), nil
+func (a *Account) GetEVMAddress() common.Address {
+	return a.evmAddress
 }
