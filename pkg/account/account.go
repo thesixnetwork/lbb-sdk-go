@@ -23,8 +23,8 @@ type AccountI interface {
 	ValidateMnemonic(mnemonic string) bool
 	GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error)
 	GetBalance() (sdk.Coins, error)
-	GetCosmosBalane() (sdk.Coin, error)
-	GetEVMBalane() (sdk.Coin, error)
+	GetCosmosBalance() (sdk.Coin, error)
+	GetEVMBalance() (sdk.Coin, error)
 }
 
 type Account struct {
@@ -88,7 +88,7 @@ func (a *Account) GetBalance() (sdk.Coins, error) {
 	return res.Balances, nil
 }
 
-func (a *Account) GetCosmosBalane() (sdk.Coin, error) {
+func (a *Account) GetCosmosBalance() (sdk.Coin, error) {
 	ctx := a.GetClientCTX()
 	queryClient := banktypes.NewQueryClient(ctx)
 
@@ -103,7 +103,7 @@ func (a *Account) GetCosmosBalane() (sdk.Coin, error) {
 	return *res.Balance, nil
 }
 
-func (a *Account) GetEVMBalane() (sdk.Coin, error) {
+func (a *Account) GetEVMBalance() (sdk.Coin, error) {
 	ctx := a.GetClientCTX()
 	queryClient := banktypes.NewQueryClient(ctx)
 
