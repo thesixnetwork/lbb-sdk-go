@@ -14,7 +14,7 @@ const (
 
 func TestContextStructFields(t *testing.T) {
 	// Test that Context struct has the expected fields
-	var ctx Context
+	var ctx Client
 
 	// Test field assignments
 	ctx.RPCClient = TestRPCClient
@@ -45,28 +45,28 @@ func TestClientStructFields(t *testing.T) {
 	var client Client
 
 	// Test field assignments through embedding
-	client.LBBContext.RPCClient = TestRPCClient
-	client.LBBContext.EVMRPCCleint = TestEVMRPCClient
-	client.LBBContext.APIClient = TestAPIClient
-	client.LBBContext.Context = context.Background()
+	client.RPCClient = TestRPCClient
+	client.EVMRPCCleint = TestEVMRPCClient
+	client.APIClient = TestAPIClient
+	client.Context = context.Background()
 
 	// Verify assignments through embedded Context
-	if client.LBBContext.RPCClient != TestRPCClient {
-		t.Errorf("Expected client.LBBContext.RPCClient to be %s, got %s", TestRPCClient, client.LBBContext.RPCClient)
+	if client.RPCClient != TestRPCClient {
+		t.Errorf("Expected client.RPCClient to be %s, got %s", TestRPCClient, client.RPCClient)
 	}
 
-	if client.LBBContext.EVMRPCCleint != TestEVMRPCClient {
-		t.Errorf("Expected client.LBBContext.EVMRPCCleint to be %s, got %s", TestEVMRPCClient, client.LBBContext.EVMRPCCleint)
+	if client.EVMRPCCleint != TestEVMRPCClient {
+		t.Errorf("Expected client.EVMRPCCleint to be %s, got %s", TestEVMRPCClient, client.EVMRPCCleint)
 	}
 
-	if client.LBBContext.APIClient != TestAPIClient {
-		t.Errorf("Expected client.LBBContext.APIClient to be %s, got %s", TestAPIClient, client.LBBContext.APIClient)
+	if client.APIClient != TestAPIClient {
+		t.Errorf("Expected client.APIClient to be %s, got %s", TestAPIClient, client.APIClient)
 	}
 }
 
 func TestBasicContextCreation(t *testing.T) {
 	// Test basic context creation without using the problematic NewContext function
-	ctx := Context{
+	ctx := Client{
 		Context:      context.Background(),
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
@@ -92,35 +92,33 @@ func TestBasicContextCreation(t *testing.T) {
 
 func TestBasicClientCreation(t *testing.T) {
 	// Test basic client creation without using problematic functions
-	ctx := Context{
+	client := Client{
 		Context:      context.Background(),
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
 		APIClient:    TestAPIClient,
 	}
 
-	client := Client{LBBContext: ctx}
-
-	if client.LBBContext.Context == nil {
+	if client.Context == nil {
 		t.Error("Client's embedded LBBContext.Context field should not be nil")
 	}
 
-	if client.LBBContext.RPCClient != TestRPCClient {
-		t.Errorf("Client's LBBContext.RPCClient should be %s, got %s", TestRPCClient, client.LBBContext.RPCClient)
+	if client.RPCClient != TestRPCClient {
+		t.Errorf("Client's LBBContext.RPCClient should be %s, got %s", TestRPCClient, client.RPCClient)
 	}
 
-	if client.LBBContext.EVMRPCCleint != TestEVMRPCClient {
-		t.Errorf("Client's LBBContext.EVMRPCCleint should be %s, got %s", TestEVMRPCClient, client.LBBContext.EVMRPCCleint)
+	if client.EVMRPCCleint != TestEVMRPCClient {
+		t.Errorf("Client's LBBContext.EVMRPCCleint should be %s, got %s", TestEVMRPCClient, client.EVMRPCCleint)
 	}
 
-	if client.LBBContext.APIClient != TestAPIClient {
-		t.Errorf("Client's LBBContext.APIClient should be %s, got %s", TestAPIClient, client.LBBContext.APIClient)
+	if client.APIClient != TestAPIClient {
+		t.Errorf("Client's LBBContext.APIClient should be %s, got %s", TestAPIClient, client.APIClient)
 	}
 }
 
 func TestEmptyContextFields(t *testing.T) {
 	// Test with empty endpoint values
-	ctx := Context{
+	ctx := Client{
 		Context:      context.Background(),
 		RPCClient:    "",
 		EVMRPCCleint: "",
@@ -146,7 +144,7 @@ func TestEmptyContextFields(t *testing.T) {
 
 func TestNilContext(t *testing.T) {
 	// Test with nil context
-	ctx := Context{
+	ctx := Client{
 		Context:      nil,
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
@@ -167,7 +165,7 @@ func TestContextWithCancel(t *testing.T) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ctx := Context{
+	ctx := Client{
 		Context:      parentCtx,
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
@@ -205,7 +203,7 @@ func TestContextWithValue(t *testing.T) {
 
 	parentCtx := context.WithValue(context.Background(), testKey, testValue)
 
-	ctx := Context{
+	ctx := Client{
 		Context:      parentCtx,
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
@@ -253,29 +251,27 @@ func TestEndpointValidation(t *testing.T) {
 
 func TestClientFieldAccess(t *testing.T) {
 	// Test that client can access all context fields through embedding
-	ctx := Context{
+	client := Client{
 		Context:      context.Background(),
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
 		APIClient:    TestAPIClient,
 	}
 
-	client := Client{LBBContext: ctx}
-
 	// Test direct access through embedded struct
-	if client.LBBContext.RPCClient != TestRPCClient {
+	if client.RPCClient != TestRPCClient {
 		t.Error("Client should have access to RPCClient through embedded LBBContext")
 	}
 
-	if client.LBBContext.EVMRPCCleint != TestEVMRPCClient {
+	if client.EVMRPCCleint != TestEVMRPCClient {
 		t.Error("Client should have access to EVMRPCCleint through embedded LBBContext")
 	}
 
-	if client.LBBContext.APIClient != TestAPIClient {
+	if client.APIClient != TestAPIClient {
 		t.Error("Client should have access to APIClient through embedded LBBContext")
 	}
 
-	if client.LBBContext.Context != ctx.Context {
+	if client.Context != context.Background() {
 		t.Error("Client should have access to Context field through embedded LBBContext")
 	}
 }
@@ -283,7 +279,7 @@ func TestClientFieldAccess(t *testing.T) {
 // Benchmark tests
 func BenchmarkContextCreation(b *testing.B) {
 	if b.Loop() {
-		_ = Context{
+		_ = Client{
 			Context:      context.Background(),
 			RPCClient:    TestRPCClient,
 			EVMRPCCleint: TestEVMRPCClient,
@@ -293,7 +289,7 @@ func BenchmarkContextCreation(b *testing.B) {
 }
 
 func BenchmarkClientCreation(b *testing.B) {
-	ctx := Context{
+	ctx := Client{
 		Context:      context.Background(),
 		RPCClient:    TestRPCClient,
 		EVMRPCCleint: TestEVMRPCClient,
@@ -302,19 +298,19 @@ func BenchmarkClientCreation(b *testing.B) {
 
 	b.ResetTimer()
 	if b.Loop() {
-		_ = Client{LBBContext: ctx}
+		_ = Client{Context: ctx}
 	}
 }
 
 func BenchmarkFullSetup(b *testing.B) {
 	if b.Loop() {
-		ctx := Context{
+		ctx := Client{
 			Context:      context.Background(),
 			RPCClient:    TestRPCClient,
 			EVMRPCCleint: TestEVMRPCClient,
 			APIClient:    TestAPIClient,
 		}
-		_ = Client{LBBContext: ctx}
+		_ = Client{Context: ctx}
 	}
 }
 

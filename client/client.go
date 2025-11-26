@@ -1,47 +1,78 @@
 package client
 
 import (
+	"context"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/thesixnetwork/six-protocol/v4/app"
 )
 
 type Client struct {
-	LBBContext      Context
-	CosmosClientCTX client.Context
+	context.Context
+	CosmosClientCTX   client.Context
+	Codec             codec.Codec
+	InterfaceRegistry codectypes.InterfaceRegistry
+	LegacyAmino       *codec.LegacyAmino
+	RPCClient         string
+	EVMRPCCleint      string
+	APIClient         string
 }
 
 type ClientI interface {
 	GetCosmosClientCTX() client.Context
-	GetLBBClientCTX() Context
+	GetKeyring() keyring.Keyring
 }
 
 var _ ClientI = (*Client)(nil)
 
-// NewClient creates a new Client with the provided Context
-func NewClient(ctx Context) *Client {
-	cdc := ctx.Codec
-	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
+// NewClient creates a new Client Context with properly initialized codecs
+func NewClient(ctx context.Context, rpcClient, evmRPCCleint, apiClient string) Client {
+	encodingConfig := app.MakeEncodingConfig()
+	txConfig := authtx.NewTxConfig(encodingConfig.Codec, authtx.DefaultSignModes)
+	kr := keyring.NewInMemory(encodingConfig.Codec)
 	cosmosClientCTX := client.Context{}.
-		WithCodec(cdc).
-		WithInterfaceRegistry(ctx.InterfaceRegistry).
+		WithCodec(encodingConfig.Codec).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(txConfig).
-		WithLegacyAmino(ctx.LegacyAmino).
+		WithLegacyAmino(encodingConfig.Amino).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastSync).
-		WithKeyring(ctx.Keyring)
+		WithKeyring(kr)
 
-	return &Client{
-		LBBContext:      ctx,
-		CosmosClientCTX: cosmosClientCTX,
+	return Client{
+		Context:           ctx,
+		CosmosClientCTX:   cosmosClientCTX,
+		Codec:             encodingConfig.Codec,
+		InterfaceRegistry: encodingConfig.InterfaceRegistry,
+		LegacyAmino:       encodingConfig.Amino,
+		RPCClient:         rpcClient,
+		EVMRPCCleint:      evmRPCCleint,
+		APIClient:         apiClient,
 	}
+}
+
+func (c *Client) GetRPCClient() string {
+	return c.RPCClient
+}
+
+func (c *Client) GetAPIClient() string {
+	return c.APIClient
+}
+
+func (c *Client) GetEVMRPCClient() string {
+	return c.EVMRPCCleint
 }
 
 func (c *Client) GetCosmosClientCTX() client.Context {
 	return c.CosmosClientCTX
 }
 
-func (c *Client) GetLBBClientCTX() Context {
-	return c.LBBContext
+func (c *Client) GetKeyring() keyring.Keyring {
+	return c.CosmosClientCTX.Keyring
 }

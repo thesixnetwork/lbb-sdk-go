@@ -1,6 +1,7 @@
 package account
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -24,9 +25,10 @@ const (
 // This creates a minimal account service that doesn't require cosmos SDK context
 func createTestAccountService() AccountI {
 	// Create a simple context without full SDK initialization to avoid codec issues
-	ctx := client.Context{}
 	return &Account{
-		ctx:         ctx,
+		Client: client.Client{
+			Context: context.Background(),
+		},
 		accountName: "test-account",
 	}
 }

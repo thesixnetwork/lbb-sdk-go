@@ -32,7 +32,7 @@ type AccountService interface {
 }
 
 type Account struct {
-	ctx         client.Context
+	client.Client
 	accountName string
 	mnemonic    string
 	privateKey  *ecdsa.PrivateKey
@@ -40,9 +40,9 @@ type Account struct {
 
 var _ AccountI = (*Account)(nil)
 
-func NewAccountService(ctx client.Context, accountName, mnemonic string) AccountI {
+func NewAccountService(ctx client.Client, accountName, mnemonic string) AccountI {
 	return &Account{
-		ctx:         ctx,
+		Client:      ctx,
 		accountName: accountName,
 		mnemonic:    mnemonic,
 	}
@@ -74,7 +74,7 @@ func (a *Account) CreateBech32AccountFromMnemonic(mnemonic, password string) (sd
 
 	path := GetFullBIP44Path()
 
-	kr, err := a.ctx.GetKeyring().NewAccount(a.accountName, mnemonic, password, path, hd.Secp256k1)
+	kr, err := a.Client.GetKeyring().NewAccount(a.accountName, mnemonic, password, path, hd.Secp256k1)
 	if err != nil {
 		return sdk.AccAddress{}, err
 	}
