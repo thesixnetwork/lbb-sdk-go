@@ -48,13 +48,13 @@ func (mc *MetadataClient) GetNFTSchema(nftSchemaCode string) (nftmngrtypes.NFTSc
 	}, nil
 }
 
-func (mc *MetadataClient) GetNFTMetadata(nftSchemaCode, tokenId string) (nftmngrtypes.NftData, error) {
+func (mc *MetadataClient) GetNFTMetadata(nftSchemaCode, tokenID string) (nftmngrtypes.NftData, error) {
 	ctx := mc.GetClientCTX()
 	queryClient := nftmngrtypes.NewQueryClient(ctx)
 
 	res, err := queryClient.NftData(mc.client.Context, &nftmngrtypes.QueryGetNftDataRequest{
 		NftSchemaCode: nftSchemaCode,
-		TokenId:       tokenId,
+		TokenId:       tokenID,
 	})
 	if err != nil {
 		return nftmngrtypes.NftData{}, nil
