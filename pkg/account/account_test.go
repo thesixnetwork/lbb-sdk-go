@@ -26,9 +26,8 @@ func createTestAccountService() AccountI {
 	// Create a simple context without full SDK initialization to avoid codec issues
 	ctx := client.Context{}
 	return &Account{
-		ctx:                  ctx,
-		accountName:          "test-account",
-		accountAddressPrefix: "6x",
+		ctx:         ctx,
+		accountName: "test-account",
 	}
 }
 
@@ -325,7 +324,7 @@ func TestWithEnvironmentVariables(t *testing.T) {
 
 // Benchmark tests
 func BenchmarkGenerateMnemonic(b *testing.B) {
-	for range b.N {
+	if b.Loop() {
 		_, err := GenerateMnemonic()
 		if err != nil {
 			b.Fatal(err)
@@ -335,7 +334,7 @@ func BenchmarkGenerateMnemonic(b *testing.B) {
 
 func BenchmarkCreateEVMAccountFromMnemonic(b *testing.B) {
 	account := createTestAccountService()
-	for range b.N {
+	if b.Loop() {
 		_, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
 		if err != nil {
 			b.Fatal(err)
@@ -345,7 +344,7 @@ func BenchmarkCreateEVMAccountFromMnemonic(b *testing.B) {
 
 func BenchmarkCreateEVMAccountFromPrivateKey(b *testing.B) {
 	account := createTestAccountService()
-	for range b.N {
+	if b.Loop() {
 		_, err := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
 		if err != nil {
 			b.Fatal(err)
@@ -355,7 +354,7 @@ func BenchmarkCreateEVMAccountFromPrivateKey(b *testing.B) {
 
 func BenchmarkNewHDPathIterator(b *testing.B) {
 	basePath := "m/44'/60'/0'/0"
-	for range b.N {
+	if b.Loop() {
 		iterator, err := NewHDPathIterator(basePath)
 		if err != nil {
 			b.Fatal(err)

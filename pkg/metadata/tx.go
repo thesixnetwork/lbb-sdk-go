@@ -7,5 +7,3 @@ import (
 type MetadataTxFactory struct {
 	TxFactory clienttx.Factory
 }
-
-func NewFactory

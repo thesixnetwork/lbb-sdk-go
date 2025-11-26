@@ -12,7 +12,10 @@ type Client struct {
 	CosmosClientCTX client.Context
 }
 
-type ClientI interface{}
+type ClientI interface {
+	GetCosmosClientCTX() client.Context
+	GetLBBClientCTX() Context
+}
 
 var _ ClientI = (*Client)(nil)
 
@@ -33,4 +36,12 @@ func NewClient(ctx Context) *Client {
 		LBBContext:      ctx,
 		CosmosClientCTX: cosmosClientCTX,
 	}
+}
+
+func (c *Client) GetCosmosClientCTX() client.Context {
+	return c.CosmosClientCTX
+}
+
+func (c *Client) GetLBBClientCTX() Context {
+	return c.LBBContext
 }
