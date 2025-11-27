@@ -2,11 +2,13 @@ package account
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
@@ -23,13 +25,12 @@ const (
 
 // Helper function to create a test account service
 // This creates a minimal account service that doesn't require cosmos SDK context
-func createTestAccountService() AccountI {
+func createTestAccountService() *Account {
 	// Create a simple context without full SDK initialization to avoid codec issues
 	return &Account{
 		Client: client.Client{
 			Context: context.Background(),
 		},
-		accountName: "test-account",
 	}
 }
 
@@ -104,23 +105,24 @@ func TestValidateMnemonic(t *testing.T) {
 }
 
 func TestCreateEVMAccountFromMnemonic(t *testing.T) {
-	account := createTestAccountService()
-
 	t.Run("Create EVM account from valid mnemonic", func(t *testing.T) {
-		address, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
-
+		pk, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err, "Should create EVM account without error")
-		assert.NotEqual(t, common.Address{}, address, "Generated address should not be empty")
-		assert.True(t, common.IsHexAddress(address.Hex()), "Generated address should be valid hex")
+		assert.NotEqual(t, &ecdsa.PrivateKey{}, pk, "Generated address should not be empty")
+		pkbytes := crypto.FromECDSA(pk)
+		assert.Equal(t, 32, len(pkbytes), "Private key should be 32 bytes")
 
-		t.Logf("Generated EVM address: %s", address.Hex())
+		address, err := GetAddressFromPrivateKey(pk)
+		require.NoError(t, err, "Should use privateey without error")
+
+		assert.True(t, common.IsHexAddress(address.Hex()), "Generated address should be valid hex")
 	})
 
 	t.Run("Different passwords generate different addresses", func(t *testing.T) {
-		address1, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, "password1")
+		address1, err := GetAddressFromMnemonic(TestMnemonic, "password1")
 		require.NoError(t, err)
 
-		address2, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, "password2")
+		address2, err := GetAddressFromMnemonic(TestMnemonic, "password2")
 		require.NoError(t, err)
 
 		assert.NotEqual(t, address1, address2, "Different passwords should generate different addresses")
@@ -128,59 +130,43 @@ func TestCreateEVMAccountFromMnemonic(t *testing.T) {
 	})
 
 	t.Run("Invalid mnemonic should return error", func(t *testing.T) {
-		_, err := account.CreateEVMAccountFromMnemonic(InvalidMnemonic, TestPassword)
+		_, err := GetAddressFromMnemonic(InvalidMnemonic, TestPassword)
 		assert.Error(t, err, "Should return error for invalid mnemonic")
 		assert.Contains(t, err.Error(), "invalid mnemonic", "Error should mention invalid mnemonic")
 	})
 }
 
 func TestGetPrivateKeyFromMnemonic(t *testing.T) {
-	account := createTestAccountService()
-
 	t.Run("Extract private key from valid mnemonic", func(t *testing.T) {
-		privateKey, err := account.GetPrivateKeyFromMnemonic(TestMnemonic, TestPassword)
+		privateKey, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 
 		require.NoError(t, err, "Should extract private key without error")
 		assert.NotEmpty(t, privateKey, "Private key should not be empty")
-		assert.Equal(t, 64, len(privateKey), "Private key should be 64 characters (32 bytes hex)")
-
-		t.Logf("Generated private key: %s...", privateKey[:16])
+		assert.Equal(t, 64, len(crypto.FromECDSA(privateKey)), "Private key should be 64 characters (32 bytes hex)")
 	})
 
 	t.Run("Invalid mnemonic should return error", func(t *testing.T) {
-		_, err := account.GetPrivateKeyFromMnemonic(InvalidMnemonic, TestPassword)
+		_, err := CreatePrivateKeyFromMnemonic(InvalidMnemonic, TestPassword)
 		assert.Error(t, err, "Should return error for invalid mnemonic")
 		assert.Contains(t, err.Error(), "invalid mnemonic", "Error should mention invalid mnemonic")
 	})
 }
 
 func TestCreateEVMAccountFromPrivateKey(t *testing.T) {
-	account := createTestAccountService()
-
 	t.Run("Create account from private key without 0x prefix", func(t *testing.T) {
-		address, err := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
-
+		pk, err := CreateAccountFromPrivateKey(TestPrivateKey)
 		require.NoError(t, err, "Should create account without error")
-		assert.NotEmpty(t, address, "Address should not be empty")
-		assert.True(t, common.IsHexAddress(address), "Should be valid hex address")
-		assert.True(t, strings.HasPrefix(address, "0x"), "Address should have 0x prefix")
+		assert.NotEmpty(t, pk, "Address should not be empty")
 
 		// This should generate the known address for this test private key
 		expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-		assert.Equal(t, expectedAddress, address, "Should generate expected address")
+		address, err := GetAddressFromPrivateKey(pk)
+		require.NoError(t, err, "Should get address without error")
+		cryptoAddress := crypto.PubkeyToAddress(pk.PublicKey)
+		assert.Equal(t, expectedAddress, address.Hex(), "Should generate expected address")
+		assert.Equal(t, expectedAddress, cryptoAddress.Hex(), "Should generate expected address")
 
 		t.Logf("Generated address: %s", address)
-	})
-
-	t.Run("Create account from private key with 0x prefix", func(t *testing.T) {
-		address1, err1 := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
-		address2, err2 := account.CreateEVMAccountFromPrivateKey(TestPrivateKeyWith0x, TestPassword)
-
-		require.NoError(t, err1)
-		require.NoError(t, err2)
-		assert.Equal(t, address1, address2, "Should generate same address regardless of 0x prefix")
-
-		t.Log("0x prefix handling works correctly")
 	})
 
 	t.Run("Invalid private key formats should return error", func(t *testing.T) {
@@ -192,7 +178,7 @@ func TestCreateEVMAccountFromPrivateKey(t *testing.T) {
 		}
 
 		for _, invalidKey := range invalidKeys {
-			_, err := account.CreateEVMAccountFromPrivateKey(invalidKey, TestPassword)
+			_, err := CreateAccountFromPrivateKey(invalidKey)
 			assert.Error(t, err, "Should return error for invalid private key: %s", invalidKey)
 		}
 
@@ -273,25 +259,22 @@ func TestNewHDPathIterator(t *testing.T) {
 }
 
 func TestAccountConsistency(t *testing.T) {
-	account := createTestAccountService()
 
 	t.Run("Private key from mnemonic matches address generation", func(t *testing.T) {
 		// Generate address from mnemonic
-		address1, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
+		address1, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err)
 
 		// Get private key from same mnemonic
-		privateKey, err := account.GetPrivateKeyFromMnemonic(TestMnemonic, TestPassword)
+		privateKey, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err)
 
 		// Generate address from private key
-		address2Hex, err := account.CreateEVMAccountFromPrivateKey(privateKey, TestPassword)
+		address2Hex, err := GetAddressFromPrivateKey(privateKey)
 		require.NoError(t, err)
 
-		address2 := common.HexToAddress(address2Hex)
+		address2 := common.HexToAddress(address2Hex.Hex())
 		assert.Equal(t, address1, address2, "Addresses should match when derived from same mnemonic")
-
-		t.Logf("Consistency validated: %s", address1.Hex())
 	})
 }
 
@@ -335,9 +318,8 @@ func BenchmarkGenerateMnemonic(b *testing.B) {
 }
 
 func BenchmarkCreateEVMAccountFromMnemonic(b *testing.B) {
-	account := createTestAccountService()
 	if b.Loop() {
-		_, err := account.CreateEVMAccountFromMnemonic(TestMnemonic, TestPassword)
+		_, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -345,9 +327,8 @@ func BenchmarkCreateEVMAccountFromMnemonic(b *testing.B) {
 }
 
 func BenchmarkCreateEVMAccountFromPrivateKey(b *testing.B) {
-	account := createTestAccountService()
 	if b.Loop() {
-		_, err := account.CreateEVMAccountFromPrivateKey(TestPrivateKey, TestPassword)
+		_, err := CreatePrivateKeyFromMnemonic(TestPrivateKey, TestPassword)
 		if err != nil {
 			b.Fatal(err)
 		}

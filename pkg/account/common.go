@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	client "github.com/thesixnetwork/lbb-sdk-go/client"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -29,7 +28,7 @@ func GenerateMnemonic() (string, error) {
 	return mnemonic, nil
 }
 
-func CreatePrivateKeyFromMnemonic(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error) {
+func CreatePrivateKeyFromMnemonic(mnemonic string, password string) (*ecdsa.PrivateKey, error) {
 	if bip39.IsMnemonicValid(mnemonic) {
 		return &ecdsa.PrivateKey{}, errors.New("invalid mnemonic")
 	}
@@ -43,20 +42,12 @@ func CreatePrivateKeyFromMnemonic(ctx client.Client, mnemonic string, password s
 	return privateKey, nil
 }
 
-func CreateEVMAccountFromMnemonic(ctx client.Client, mnemonic string, password string) (common.Address, *ecdsa.PrivateKey, error) {
-	if bip39.IsMnemonicValid(mnemonic) {
-		return common.Address{}, &ecdsa.PrivateKey{}, errors.New("invalid mnemonic")
-	}
-
-	seed := bip39.NewSeed(mnemonic, password)
-
-	privateKey, err := crypto.ToECDSA(seed[:32])
+func CreateAccountFromPrivateKey(hexprivatekey string) (*ecdsa.PrivateKey, error) {
+	privateKey, err := crypto.HexToECDSA(hexprivatekey)
 	if err != nil {
-		return common.Address{}, &ecdsa.PrivateKey{}, err
+		return &ecdsa.PrivateKey{}, err
 	}
-
-	pubkey := privateKey.PublicKey
-	return crypto.PubkeyToAddress(pubkey), privateKey, nil
+	return privateKey, nil
 }
 
 func GetBech32AccountFromMnemonic(keyring keyring.Keyring, accountName, mnemonic, password string) (sdk.AccAddress, error) {
@@ -93,6 +84,25 @@ func GetAddressFromMnemonic(mnemonic, password string) (common.Address, error) {
 	}
 
 	pubkey := privateKey.PublicKey
+	address := crypto.PubkeyToAddress(pubkey)
+
+	return address, nil
+}
+
+func GetAddressFromPrivateKeyHex(privateKey string) (common.Address, error) {
+	key, err := crypto.HexToECDSA(privateKey)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	pubkey := key.PublicKey
+	address := crypto.PubkeyToAddress(pubkey)
+
+	return address, nil
+}
+
+func GetAddressFromPrivateKey(privatekey *ecdsa.PrivateKey) (common.Address, error) {
+	pubkey := privatekey.PublicKey
 	address := crypto.PubkeyToAddress(pubkey)
 
 	return address, nil
