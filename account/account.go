@@ -9,7 +9,6 @@ import (
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	bip39 "github.com/cosmos/go-bip39"
 )
 
@@ -22,9 +21,6 @@ type AccountI interface {
 	GetEVMAddress() common.Address
 	ValidateMnemonic(mnemonic string) bool
 	GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error)
-	GetBalance() (sdk.Coins, error)
-	GetCosmosBalance() (sdk.Coin, error)
-	GetEVMBalance() (sdk.Coin, error)
 }
 
 type Account struct {
@@ -72,54 +68,6 @@ func (*Account) GetPrivateKey(ctx client.Client, mnemonic string, password strin
 	}
 
 	return privateKey, nil
-}
-
-func (a *Account) GetBalance() (sdk.Coins, error) {
-	ctx := a.GetClientCTX()
-	queryClient := banktypes.NewQueryClient(ctx)
-
-	res, err := queryClient.AllBalances(a.Context, &banktypes.QueryAllBalancesRequest{
-		Address: a.cosmosAddress.String(),
-	})
-	if err != nil {
-		return sdk.Coins{}, err
-	}
-
-	return res.Balances, nil
-}
-
-func (a *Account) GetCosmosBalance() (sdk.Coin, error) {
-	ctx := a.GetClientCTX()
-	queryClient := banktypes.NewQueryClient(ctx)
-
-	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
-		Address: a.cosmosAddress.String(),
-		Denom:   "usix",
-	})
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	return *res.Balance, nil
-}
-
-func (a *Account) GetEVMBalance() (sdk.Coin, error) {
-	ctx := a.GetClientCTX()
-	queryClient := banktypes.NewQueryClient(ctx)
-
-	addr := a.evmAddress.Bytes()
-	bech32AccAddress := sdk.AccAddress(addr)
-
-	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
-		Address: bech32AccAddress.String(),
-		Denom:   "asix",
-	})
-
-	if err != nil {
-		return sdk.Coin{}, err
-	}
-
-	return *res.Balance, nil
 }
 
 func (a *Account) GetCosmosAddress() sdk.AccAddress {
