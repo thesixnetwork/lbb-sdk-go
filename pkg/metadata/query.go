@@ -2,22 +2,23 @@ package metadata
 
 import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+	account "github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 )
 
 type MetadataClient struct {
-	client client.Client
+	account.Account
 }
 
-func NewMetadataClient(c client.Client) *MetadataClient {
+func NewMetadataClient(a account.Account) *MetadataClient {
 	return &MetadataClient{
-		client: c,
+		a,
 	}
 }
 
 func (mc *MetadataClient) GetClient() client.Client {
-	return mc.client
+	return mc.Client
 }
 
 func (mc *MetadataClient) GetClientCTX() cosmosclient.Context {
@@ -29,7 +30,7 @@ func (mc *MetadataClient) GetNFTSchema(nftSchemaCode string) (nftmngrtypes.NFTSc
 	queryClient := nftmngrtypes.NewQueryClient(ctx)
 
 	res, err := queryClient.NFTSchema(
-		mc.client.Context,
+		mc.Context,
 		&nftmngrtypes.QueryGetNFTSchemaRequest{Code: nftSchemaCode},
 	)
 	if err != nil {
@@ -52,7 +53,7 @@ func (mc *MetadataClient) GetNFTMetadata(nftSchemaCode, tokenID string) (nftmngr
 	ctx := mc.GetClientCTX()
 	queryClient := nftmngrtypes.NewQueryClient(ctx)
 
-	res, err := queryClient.NftData(mc.client.Context, &nftmngrtypes.QueryGetNftDataRequest{
+	res, err := queryClient.NftData(mc.Context, &nftmngrtypes.QueryGetNftDataRequest{
 		NftSchemaCode: nftSchemaCode,
 		TokenId:       tokenID,
 	})
@@ -78,7 +79,7 @@ func (mc *MetadataClient) GetExecutor(nftSchemaCode string) ([]string, error) {
 	queryClient := nftmngrtypes.NewQueryClient(ctx)
 
 	res, err := queryClient.ExecutorOfSchema(
-		mc.client.Context,
+		mc.Context,
 		&nftmngrtypes.QueryGetExecutorOfSchemaRequest{NftSchemaCode: nftSchemaCode},
 	)
 	if err != nil {
@@ -96,7 +97,7 @@ func (mc *MetadataClient) GetIsExecutor(nftSchemaCode, executorAddress string) (
 	ctx := mc.GetClientCTX()
 	queryClient := nftmngrtypes.NewQueryClient(ctx)
 
-	res, err := queryClient.ActionExecutor(mc.client.Context, &nftmngrtypes.QueryGetActionExecutorRequest{
+	res, err := queryClient.ActionExecutor(mc.Context, &nftmngrtypes.QueryGetActionExecutorRequest{
 		NftSchemaCode:   nftSchemaCode,
 		ExecutorAddress: executorAddress,
 	})
