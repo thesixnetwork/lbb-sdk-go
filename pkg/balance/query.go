@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	SIX_BASE_DENOM = "usix"
-	SIX_EVM_DENOM = "asix"
+	BaseDenom = "usix"
+	EVMDenom  = "asix"
 )
 
 type BalanceClient struct {
@@ -41,7 +41,7 @@ func (a *BalanceClient) GetCosmosBalance() (sdk.Coin, error) {
 
 	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
 		Address: a.GetCosmosAddress().String(),
-		Denom:   SIX_BASE_DENOM,
+		Denom:   BaseDenom,
 	})
 	if err != nil {
 		return sdk.Coin{}, err
@@ -59,7 +59,7 @@ func (a *BalanceClient) GetEVMBalance() (sdk.Coin, error) {
 
 	res, err := queryClient.Balance(a.Context, &banktypes.QueryBalanceRequest{
 		Address: bech32AccAddress.String(),
-		Denom:   SIX_EVM_DENOM,
+		Denom:   EVMDenom,
 	})
 	if err != nil {
 		return sdk.Coin{}, err

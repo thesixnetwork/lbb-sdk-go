@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
 )
@@ -20,8 +21,15 @@ func main() {
 		panic(fmt.Sprintf("ERROR CREATE CLEINT %v", err))
 	}
 
+	mnemonic, err := account.GenerateMnemonic()
+	if err != nil {
+		panic(fmt.Sprintf("Error Generate mnemonic %v", err))
+	}
+
+	a := account.NewAccount(client, "alice", mnemonic, "")
+
 	// Create MetadataClient
-	metadataClient := metadata.NewMetadataClient(client)
+	metadataClient := metadata.NewMetadataClient(*a)
 
 	// Call GetNFTSchema with a sample nftSchemaCode
 	nftSchemaCode := "TechSauceVV12.GlobalSummit2025"

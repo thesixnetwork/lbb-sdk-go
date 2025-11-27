@@ -29,7 +29,7 @@ func GenerateMnemonic() (string, error) {
 }
 
 func CreatePrivateKeyFromMnemonic(mnemonic string, password string) (*ecdsa.PrivateKey, error) {
-	if bip39.IsMnemonicValid(mnemonic) {
+	if !bip39.IsMnemonicValid(mnemonic) {
 		return &ecdsa.PrivateKey{}, errors.New("invalid mnemonic")
 	}
 
@@ -51,7 +51,7 @@ func CreateAccountFromPrivateKey(hexprivatekey string) (*ecdsa.PrivateKey, error
 }
 
 func GetBech32AccountFromMnemonic(keyring keyring.Keyring, accountName, mnemonic, password string) (sdk.AccAddress, error) {
-	if bip39.IsMnemonicValid(mnemonic) {
+	if !bip39.IsMnemonicValid(mnemonic) {
 		return sdk.AccAddress{}, errors.New("invalid mnemonic")
 	}
 
@@ -71,7 +71,7 @@ func GetBech32AccountFromMnemonic(keyring keyring.Keyring, accountName, mnemonic
 }
 
 func GetAddressFromMnemonic(mnemonic, password string) (common.Address, error) {
-	if bip39.IsMnemonicValid(mnemonic) {
+	if !bip39.IsMnemonicValid(mnemonic) {
 		return common.Address{}, errors.New("invalid mnemonic")
 	}
 
