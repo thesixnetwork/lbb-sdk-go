@@ -28,6 +28,7 @@ type Account struct {
 	mnemonic      string
 	evmAddress    common.Address
 	cosmosAddress sdk.AccAddress
+	accountName   string
 }
 
 var _ AccountI = (*Account)(nil)
@@ -48,6 +49,7 @@ func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Acco
 		mnemonic:      mnemonic,
 		evmAddress:    evmAddress,
 		cosmosAddress: cosmosAddress,
+		accountName:   accountName,
 	}
 }
 

@@ -11,22 +11,18 @@ import (
 
 func main() {
 	// Initialize Client
-	client, err := client.NewClient(
+	client, err := client.NewCustomClient(
 		context.Background(),
-		"https://rpc1.fivenet.sixprotocol.net:443",
-		"https://rpc-evm.fivenet.sixprotocol.net:443",
-		"https://api1.fivenet.sixprotocol.net:443",
+		"http://localhost:26657",
+		"http://localhost:1317",
+		"http://localhost:8545",
+		"testnet",
 	)
 	if err != nil {
 		panic(fmt.Sprintf("ERROR CREATE CLEINT %v", err))
 	}
 
-	mnemonic, err := account.GenerateMnemonic()
-	if err != nil {
-		panic(fmt.Sprintf("Error Generate mnemonic %v", err))
-	}
-
-	a := account.NewAccount(client, "alice", mnemonic, "")
+	a := account.NewAccount(client, "alice", account.TestMnemonic, "")
 
 	// Create MetadataClient
 	metadataClient := metadata.NewMetadataClient(*a)

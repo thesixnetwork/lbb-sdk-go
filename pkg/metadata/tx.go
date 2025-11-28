@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/thesixnetwork/lbb-sdk-go/account"
 )
 
-type MetadataTxFactory struct {
-	TxFactory clienttx.Factory
+type MetadataMsg struct {
+	account.AccountMsg
 }

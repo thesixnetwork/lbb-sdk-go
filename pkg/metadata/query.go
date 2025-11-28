@@ -2,20 +2,9 @@ package metadata
 
 import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
-	account "github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 )
-
-type MetadataClient struct {
-	account.Account
-}
-
-func NewMetadataClient(a account.Account) *MetadataClient {
-	return &MetadataClient{
-		a,
-	}
-}
 
 func (mc *MetadataClient) GetClient() client.Client {
 	return mc.Client

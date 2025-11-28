@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -11,7 +12,20 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/thesixnetwork/six-protocol/v4/encoding"
-	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+)
+
+const (
+	// TESTNET DEFAULT
+	TestnetRPC     = "https://rpc1.fivenet.sixprotocol.net"
+	TestnetAPI     = "https://api1.fivenet.sixprotocol.net"
+	TestnetEVMRPC  = "https://rpc-evm.fivenet.sixprotocol.net"
+	TestnetChainID = "fivenet"
+
+	// MINNET DEFAULT
+	MainnetRPC     = "https://sixnet-rpc.sixprotocol.net/"
+	MainnetAPI     = "https://sixnet-api.sixprotocol.net"
+	MainnetEVMRPC  = "https://sixnet-rpc.sixprotocol.net"
+	MainnetChainID = "sixnet"
 )
 
 type Client struct {
@@ -23,6 +37,7 @@ type Client struct {
 	RPCClient         string
 	EVMRPCCleint      string
 	APIClient         string
+	ChainID           string
 }
 
 type ClientI interface {
@@ -33,7 +48,20 @@ type ClientI interface {
 var _ ClientI = (*Client)(nil)
 
 // NewClient creates a new Client Context with properly initialized codecs
-func NewClient(ctx context.Context, rpcURL, evmrpcURL, apiURL string) (Client, error) {
+func NewClient(ctx context.Context, testnet bool) (Client, error) {
+	var rpcURL, apiURL, evmrpcURL, chainID string
+	if testnet {
+		rpcURL = TestnetRPC
+		apiURL = TestnetAPI
+		evmrpcURL = TestnetEVMRPC
+		chainID = TestnetChainID
+	} else {
+		rpcURL = MainnetRPC
+		apiURL = MainnetAPI
+		evmrpcURL = MainnetEVMRPC
+		chainID = MainnetChainID
+	}
+
 	encodingConfig := encoding.MakeConfig()
 	cdc := encodingConfig.Codec
 	LegacyAmino := encodingConfig.Amino
@@ -53,7 +81,8 @@ func NewClient(ctx context.Context, rpcURL, evmrpcURL, apiURL string) (Client, e
 		WithBroadcastMode(flags.BroadcastSync).
 		WithKeyring(kr).
 		WithNodeURI(rpcURL).
-		WithClient(rpcclient)
+		WithClient(rpcclient).
+		WithChainID(chainID)
 
 	return Client{
 		Context:           ctx,
@@ -64,6 +93,43 @@ func NewClient(ctx context.Context, rpcURL, evmrpcURL, apiURL string) (Client, e
 		RPCClient:         rpcURL,
 		EVMRPCCleint:      evmrpcURL,
 		APIClient:         apiURL,
+		ChainID:           chainID,
+	}, nil
+}
+
+func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string) (Client, error) {
+	encodingConfig := encoding.MakeConfig()
+	cdc := encodingConfig.Codec
+	LegacyAmino := encodingConfig.Amino
+	interfaceRegistry := encodingConfig.InterfaceRegistry
+	txConfig := authtx.NewTxConfig(encodingConfig.Codec, authtx.DefaultSignModes)
+	kr := keyring.NewInMemory(encodingConfig.Codec)
+	rpcclient, err := NewClientFromNode(rpcURL)
+	if err != nil {
+		return Client{}, nil
+	}
+	cosmosClientCTX := client.Context{}.
+		WithCodec(cdc).
+		WithInterfaceRegistry(interfaceRegistry).
+		WithTxConfig(txConfig).
+		WithLegacyAmino(LegacyAmino).
+		WithAccountRetriever(authtypes.AccountRetriever{}).
+		WithBroadcastMode(flags.BroadcastSync).
+		WithKeyring(kr).
+		WithNodeURI(rpcURL).
+		WithClient(rpcclient).
+		WithChainID(chainID)
+
+	return Client{
+		Context:           ctx,
+		CosmosClientCTX:   cosmosClientCTX,
+		Codec:             encodingConfig.Codec,
+		InterfaceRegistry: encodingConfig.InterfaceRegistry,
+		LegacyAmino:       encodingConfig.Amino,
+		RPCClient:         rpcURL,
+		EVMRPCCleint:      evmRPC,
+		APIClient:         apiURL,
+		ChainID:           chainID,
 	}, nil
 }
 
@@ -79,6 +145,10 @@ func (c *Client) GetEVMRPCClient() string {
 	return c.EVMRPCCleint
 }
 
+func (c *Client) GetChainID() string {
+	return c.ChainID
+}
+
 func (c *Client) GetClientCTX() client.Context {
 	return c.CosmosClientCTX
 }
@@ -89,6 +159,16 @@ func (c *Client) GetKeyring() keyring.Keyring {
 
 func (c *Client) GetContext() context.Context {
 	return c.Context
+}
+
+func (c Client) WithFrom(from string) Client {
+	c.CosmosClientCTX.From = from
+	return c
+}
+
+func (c Client) WithFromName(fromName string) Client {
+	c.CosmosClientCTX.FromName = fromName
+	return c
 }
 
 // NewClientFromNode sets up Client implementation that communicates with a CometBFT node over
