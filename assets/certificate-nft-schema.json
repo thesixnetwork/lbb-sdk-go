@@ -1,0 +1,155 @@
+{
+  "code": "#SCHEMA_CODE",
+  "name": "#SCHEMA_NAME",
+  "owner": "",
+  "origin_data": {
+    "origin_base_uri": "",
+    "uri_retrieval_method": "TOKEN",
+    "origin_chain": "SIXNET",
+    "origin_contract_address": "",
+    "attribute_overriding": "CHAIN",
+    "metadata_format": "opensea",
+    "origin_attributes": []
+  },
+  "onchain_data": {
+    "nft_attributes": [],
+    "token_attributes": [
+      {
+        "name": "status",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": "TCI"
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Certificate Status"
+          }
+        }
+      },
+      {
+        "name": "gold_standard",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": "LBI"
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Gold Standard"
+          }
+        }
+      },
+      {
+        "name": "weight",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": ""
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Weight"
+          }
+        }
+      },
+      {
+        "name": "cert_number",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": ""
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Certificate Number"
+          }
+        }
+      },
+      {
+        "name": "customer_id",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": ""
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Customer ID"
+          }
+        }
+      },
+      {
+        "name": "issue_date",
+        "data_type": "string",
+        "required": true,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": ""
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Issue Date"
+          }
+        }
+      },
+      {
+        "name": "active_status",
+        "data_type": "string",
+        "required": false,
+        "display_value_field": "value",
+        "default_mint_value": {
+          "string_attribute_value": {
+            "value": "ACTIVE"
+          }
+        },
+        "display_option": {
+          "opensea": {
+            "trait_type": "Active Status"
+          }
+        }
+      }
+    ],
+    "actions": [
+      {
+        "name": "freeze_cert",
+        "desc": "Use for update certificate to TCL",
+        "params": [],
+        "when": "meta.GetString('status') == 'TCI'",
+        "then": [
+          "meta.SetString('status', 'TCL')"
+        ]
+      },
+      {
+        "name": "unfreeze_cert",
+        "desc": "Use for update certificate to TCI",
+        "params": [],
+        "when": "meta.GetString('status') == 'TCL'",
+        "then": [
+          "meta.SetString('status', 'TCI')"
+        ]
+      }
+    ],
+    "status": []
+  },
+  "mint_authorization": "SYSTEM",
+  "system_actioners": [],
+  "isVerified": false
+}

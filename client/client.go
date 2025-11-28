@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 
+	"github.com/thesixnetwork/lbb-sdk-go/config"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -11,7 +12,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/thesixnetwork/six-protocol/v4/encoding"
 )
 
 const (
@@ -62,7 +62,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 		chainID = MainnetChainID
 	}
 
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := config.MakeConfig()
 	cdc := encodingConfig.Codec
 	LegacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
@@ -98,7 +98,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 }
 
 func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string) (Client, error) {
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := config.MakeConfig()
 	cdc := encodingConfig.Codec
 	LegacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry

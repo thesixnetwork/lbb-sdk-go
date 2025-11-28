@@ -21,7 +21,10 @@ type AccountMsg struct {
 }
 
 func NewAccountMsg(a Account) *AccountMsg {
-	ctx := a.GetClientCTX().WithFromName(a.accountName)
+	// use account info to set clintContext
+	a.CosmosClientCTX = a.GetClientCTX().WithFromName(a.accountName).WithFrom(a.accountName).WithFromAddress(a.GetCosmosAddress())
+
+	ctx := a.CosmosClientCTX
 
 	factory := clienttx.Factory{}.
 		WithTxConfig(ctx.TxConfig).
@@ -30,7 +33,7 @@ func NewAccountMsg(a Account) *AccountMsg {
 		WithGas(GasLimit).
 		// WithFees(Fee)
 		WithGasPrices(GasPrice).
-		WithKeybase(a.GetKeyring()).
+		WithKeybase(ctx.Keyring).
 		WithFromName(ctx.FromName).
 		// WithSequence()
 		// WithAccountNumber(a.CosmosClientCTX.Account)
@@ -54,9 +57,19 @@ func (a *AccountMsg) GenerateOrBroadcastTxWithFactory(msgs ...sdk.Msg) error {
 
 func (a *AccountMsg) BroadcastTx(msgs ...sdk.Msg) (res *sdk.TxResponse, err error) {
 	ctx := a.GetClientCTX()
+
+	// Validate account and address
+	if a.cosmosAddress.Empty() {
+		return &sdk.TxResponse{}, fmt.Errorf("account cosmos address is empty, account name: %s", a.accountName)
+	}
+
+	if len(msgs) == 0 {
+		return &sdk.TxResponse{}, errors.New("no messages provided to broadcast")
+	}
+
 	txf, err := a.Prepare(a.CosmosClientCTX)
 	if err != nil {
-		return &sdk.TxResponse{}, err
+		return &sdk.TxResponse{}, fmt.Errorf("failed to prepare transaction factory: %w", err)
 	}
 
 	if txf.SimulateAndExecute() || ctx.Simulate {
@@ -66,7 +79,7 @@ func (a *AccountMsg) BroadcastTx(msgs ...sdk.Msg) (res *sdk.TxResponse, err erro
 
 		_, adjusted, err := clienttx.CalculateGas(ctx, txf, msgs...)
 		if err != nil {
-			return &sdk.TxResponse{}, err
+			return &sdk.TxResponse{}, fmt.Errorf("failed to calculate gas for transaction (from: %s): %w", a.cosmosAddress.String(), err)
 		}
 
 		txf = txf.WithGas(adjusted)
@@ -79,17 +92,26 @@ func (a *AccountMsg) BroadcastTx(msgs ...sdk.Msg) (res *sdk.TxResponse, err erro
 
 	tx, err := txf.BuildUnsignedTx(msgs...)
 	if err != nil {
-		return &sdk.TxResponse{}, err
+		return &sdk.TxResponse{}, fmt.Errorf("failed to build unsigned transaction (from: %s, gas: %d): %w", a.cosmosAddress.String(), txf.Gas(), err)
 	}
 
 	if err = clienttx.Sign(ctx.CmdContext, txf, ctx.FromName, tx, true); err != nil {
-		return &sdk.TxResponse{}, err
+		return &sdk.TxResponse{}, fmt.Errorf("failed to sign transaction (account: %s, from: %s): %w", ctx.FromName, a.cosmosAddress.String(), err)
 	}
 
 	txBytes, err := ctx.TxConfig.TxEncoder()(tx.GetTx())
 	if err != nil {
-		return &sdk.TxResponse{}, err
+		return &sdk.TxResponse{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
-	return ctx.BroadcastTx(txBytes)
+	res, err = ctx.BroadcastTx(txBytes)
+	if err != nil {
+		return &sdk.TxResponse{}, fmt.Errorf("failed to broadcast transaction (from: %s, chain: %s): %w", a.cosmosAddress.String(), a.ChainID, err)
+	}
+
+	if res.Code != 0 {
+		return res, fmt.Errorf("transaction failed with code %d: %s (from: %s, txhash: %s)", res.Code, res.RawLog, a.cosmosAddress.String(), res.TxHash)
+	}
+
+	return res, nil
 }

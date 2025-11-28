@@ -4,9 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
-	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
+
+	// "github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
+)
+
+const (
+	BobAddress = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
 )
 
 func main() {
@@ -23,26 +31,22 @@ func main() {
 	}
 
 	a := account.NewAccount(client, "alice", account.TestMnemonic, "")
+	if a == nil {
+		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
+	}
 
-	// Create MetadataClient
-	metadataClient := metadata.NewMetadataClient(*a)
+	balanceClient := balance.NewBalanceMsg(*a)
 
-	// Call GetNFTSchema with a sample nftSchemaCode
-	nftSchemaCode := "TechSauceVV12.GlobalSummit2025"
-	result, err := metadataClient.GetNFTSchema(nftSchemaCode)
+	sendAmount := sdk.Coin{
+		Amount: math.NewInt(20),
+		Denom:  "usix",
+	}
+
+	res, err := balanceClient.SendBalance(BobAddress, sdk.NewCoins(sendAmount))
 	if err != nil {
-		fmt.Printf("Error fetching NFT Schema: %v\n", err)
+		fmt.Printf("Send error: %v\n", err)
 		return
 	}
 
-	_ = result
-	// Print the result
-	// fmt.Printf("NFT Schema Result: %+v \n", result)
-
-	nftdata, err := metadataClient.GetNFTMetadata(nftSchemaCode, "1")
-	if err != nil {
-		fmt.Printf("Error fetching NFT Schema: %v\n", err)
-		return
-	}
-	fmt.Printf("NFT Schema Result: %+v \n", nftdata)
+	fmt.Printf("Send response: %v\n", res)
 }

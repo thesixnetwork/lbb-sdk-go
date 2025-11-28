@@ -1,0 +1,11 @@
+{
+  "nft_schema_code": "sixprotocol.dual_chain_gold_nft",
+  "token_id": "TOKENID",
+  "token_owner": "",
+  "owner_address_type": "ORIGIN_ADDRESS",
+  "origin_image": "https://picsum.photos/200/300",
+  "onchain_image": "",
+  "token_uri": "",
+  "origin_attributes": [],
+  "onchain_attributes": []
+}

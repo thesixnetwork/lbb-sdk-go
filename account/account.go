@@ -3,6 +3,7 @@ package account
 import (
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +20,6 @@ const (
 type AccountI interface {
 	GetCosmosAddress() sdk.AccAddress
 	GetEVMAddress() common.Address
-	ValidateMnemonic(mnemonic string) bool
 	GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error)
 }
 
@@ -36,13 +36,20 @@ var _ AccountI = (*Account)(nil)
 func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Account {
 	evmAddress, err := GetAddressFromMnemonic(mnemonic, password)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to get EVM address from mnemonic for account '%s': %v\n", accountName, err)
 		return nil
 	}
 
 	cosmosAddress, err := GetBech32AccountFromMnemonic(ctx.GetKeyring(), accountName, mnemonic, password)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to get Bech32 Cosmos address from mnemonic for account '%s': %v\n", accountName, err)
+		fmt.Printf("  - Account name: %s\n", accountName)
+		fmt.Printf("  - Mnemonic valid: %v\n", bip39.IsMnemonicValid(mnemonic))
+		fmt.Printf("  - Password length: %d\n", len(password))
 		return nil
 	}
+
+	fmt.Printf("✓ Account created successfully: %s (Cosmos: %s, EVM: %s)\n", accountName, cosmosAddress.String(), evmAddress.Hex())
 
 	return &Account{
 		Client:        ctx,
