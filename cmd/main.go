@@ -56,10 +56,24 @@ func main() {
 	//}
 	//fmt.Printf("Deploy response: %v\n", res)
 
-	res, err := meta.CreateCertificateMetadata("1")
+	// res, err := meta.CreateCertificateMetadata("1")
+	// if err != nil {
+	// 	fmt.Printf("Mint error: %v\n", err)
+	// 	return
+	// }
+	// fmt.Printf("Mint response: %v\n", res)
+	//
+	//res, err := meta.FreezeCertificate("1")
+	//if err != nil {
+	//	fmt.Printf("Freeze error: %v\n", err)
+	//	return
+	//}
+	//fmt.Printf("Freeze response: %v\n", res)
+
+	res, err := meta.UnfreezeCertificate("1")
 	if err != nil {
-		fmt.Printf("Mint error: %v\n", err)
+		fmt.Printf("Unfreeze error: %v\n", err)
 		return
 	}
-	fmt.Printf("Mint response: %v\n", res)
+	fmt.Printf("Unfreeze response: %v\n", res)
 }

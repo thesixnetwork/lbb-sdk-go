@@ -108,3 +108,27 @@ func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResp
 
 	return res, nil
 }
+
+func (m MetadataMsg) FreezeCertificate(tokenID string) (res *sdk.TxResponse, err error) {
+	msg := &nftmngrtypes.MsgPerformActionByAdmin{
+		Creator:       m.GetCosmosAddress().String(),
+		NftSchemaCode: m.nftSchemaCode,
+		TokenId:       tokenID,
+		Action:        "freeze_cert",
+		RefId:         "",
+		Parameters:    []*nftmngrtypes.ActionParameter{},
+	}
+	return m.BroadcastTx(msg)
+}
+
+func (m MetadataMsg) UnfreezeCertificate(tokenID string) (res *sdk.TxResponse, err error) {
+	msg := &nftmngrtypes.MsgPerformActionByAdmin{
+		Creator:       m.GetCosmosAddress().String(),
+		NftSchemaCode: m.nftSchemaCode,
+		TokenId:       tokenID,
+		Action:        "unfreeze_cert",
+		RefId:         "",
+		Parameters:    []*nftmngrtypes.ActionParameter{},
+	}
+	return m.BroadcastTx(msg)
+}
