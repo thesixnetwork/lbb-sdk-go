@@ -4,10 +4,10 @@
   "owner": "",
   "origin_data": {
     "origin_base_uri": "",
-    "uri_retrieval_method": "TOKEN",
+    "uri_retrieval_method": 1,
     "origin_chain": "SIXNET",
     "origin_contract_address": "",
-    "attribute_overriding": "CHAIN",
+    "attribute_overriding": 1,
     "metadata_format": "opensea",
     "origin_attributes": []
   },

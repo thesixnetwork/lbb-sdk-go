@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	// "cosmossdk.io/math"
+	// sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
-	// "github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
-	"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
+	//"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
 )
 
 const (
@@ -35,18 +35,24 @@ func main() {
 		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
 	}
 
-	balanceClient := balance.NewBalanceMsg(*a)
+	// balanceClient := balance.NewBalanceMsg(*a)
 
-	sendAmount := sdk.Coin{
-		Amount: math.NewInt(20),
-		Denom:  "usix",
-	}
+	// sendAmount := sdk.Coin{
+	// 	Amount: math.NewInt(20),
+	// 	Denom:  "usix",
+	// }
 
-	res, err := balanceClient.SendBalance(BobAddress, sdk.NewCoins(sendAmount))
+	// res, err := balanceClient.SendBalance(BobAddress, sdk.NewCoins(sendAmount))
+	// if err != nil {
+	// 	fmt.Printf("Send error: %v\n", err)
+	// 	return
+	// }
+
+	meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
+	res, err := meta.DeployCertificateSchema()
 	if err != nil {
 		fmt.Printf("Send error: %v\n", err)
 		return
 	}
-
 	fmt.Printf("Send response: %v\n", res)
 }

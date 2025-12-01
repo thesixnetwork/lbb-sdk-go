@@ -22,7 +22,10 @@ type AccountMsg struct {
 
 func NewAccountMsg(a Account) *AccountMsg {
 	// use account info to set clintContext
-	a.CosmosClientCTX = a.GetClientCTX().WithFromName(a.accountName).WithFrom(a.accountName).WithFromAddress(a.GetCosmosAddress())
+	a.CosmosClientCTX = a.GetClientCTX().
+		WithFromName(a.accountName).
+		WithFrom(a.accountName).
+		WithFromAddress(a.GetCosmosAddress())
 
 	ctx := a.CosmosClientCTX
 

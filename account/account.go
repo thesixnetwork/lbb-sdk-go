@@ -49,7 +49,7 @@ func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Acco
 		return nil
 	}
 
-	fmt.Printf("✓ Account created successfully: %s (Cosmos: %s, EVM: %s)\n", accountName, cosmosAddress.String(), evmAddress.Hex())
+	fmt.Printf("Account created successfully: %s (Cosmos: %s, EVM: %s)\n", accountName, cosmosAddress.String(), evmAddress.Hex())
 
 	return &Account{
 		Client:        ctx,
