@@ -11,7 +11,7 @@ func (mc *MetadataClient) GetClient() client.Client {
 }
 
 func (mc *MetadataClient) GetClientCTX() cosmosclient.Context {
-	return mc.GetClient().CosmosClientCTX
+	return mc.CosmosClientCTX
 }
 
 func (mc *MetadataClient) GetNFTSchema(nftSchemaCode string) (nftmngrtypes.NFTSchemaQueryResult, error) {

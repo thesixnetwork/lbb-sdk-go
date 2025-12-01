@@ -49,10 +49,17 @@ func main() {
 	// }
 
 	meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
-	res, err := meta.DeployCertificateSchema()
+	//res, err := meta.DeployCertificateSchema()
+	//if err != nil {
+	//	fmt.Printf("Deploy error: %v\n", err)
+	//	return
+	//}
+	//fmt.Printf("Deploy response: %v\n", res)
+
+	res, err := meta.CreateCertificateMetadata("1")
 	if err != nil {
-		fmt.Printf("Send error: %v\n", err)
+		fmt.Printf("Mint error: %v\n", err)
 		return
 	}
-	fmt.Printf("Send response: %v\n", res)
+	fmt.Printf("Mint response: %v\n", res)
 }

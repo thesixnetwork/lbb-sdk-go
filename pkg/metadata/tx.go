@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata/assets"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 )
 
@@ -25,7 +26,7 @@ func NewMetadataMsg(a account.Account, nftSchemaCode string) *MetadataMsg {
 
 func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error) {
 	var schemaInput nftmngrtypes.NFTSchemaINPUT
-	schemaInputBytes, err := GetSchemaByteFromJSON()
+	schemaInputBytes, err := assets.GetJSONSchema()
 	if err != nil {
 		return res, err
 	}
@@ -66,6 +67,44 @@ func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error)
 }
 
 func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResponse, err error) {
-	_ = tokenID
-	return m.BroadcastTx(nil)
+	var metadataInput nftmngrtypes.NftData
+
+	metadataBytes, err := assets.GetJSONMetadata()
+	if err != nil {
+		return res, err
+	}
+	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
+	if err != nil {
+		return res, err
+	}
+
+	metadataInput.NftSchemaCode = m.nftSchemaCode
+	metadataInput.OwnerAddressType = nftmngrtypes.OwnerAddressType_INTERNAL_ADDRESS
+	metadataInput.TokenId = tokenID
+	metadataInput.TokenOwner = m.GetCosmosAddress().String()
+
+	metadataBytes, err = m.Codec.(*codec.ProtoCodec).MarshalJSON(&metadataInput)
+	if err != nil {
+		return res, err
+	}
+
+	base64Metadata := base64.StdEncoding.EncodeToString(metadataBytes)
+
+	msg := &nftmngrtypes.MsgCreateMetadata{
+		Creator:       m.GetCosmosAddress().String(),
+		NftSchemaCode: m.nftSchemaCode,
+		TokenId:       tokenID,
+		Base64NFTData: base64Metadata,
+	}
+
+	res, err = m.BroadcastTx(msg)
+	if err != nil {
+		return res, err
+	}
+
+	if res.Code != 0 {
+		return res, fmt.Errorf("BroadcastTx error with reason: %v", res.Logs)
+	}
+
+	return res, nil
 }

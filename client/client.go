@@ -78,7 +78,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 		WithTxConfig(txConfig).
 		WithLegacyAmino(LegacyAmino).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
-		WithBroadcastMode(flags.BroadcastSync).
+		WithBroadcastMode(flags.BroadcastAsync).
 		WithKeyring(kr).
 		WithNodeURI(rpcURL).
 		WithClient(rpcclient).

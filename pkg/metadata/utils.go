@@ -14,6 +14,15 @@ func GetSchemaByteFromJSON() ([]byte, error) {
 	return schemaBytes, nil
 }
 
+func GetMetadataByteFromJSON() ([]byte, error) {
+	metadataByte, err := assets.GetJSONMetadata()
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return metadataByte, nil
+}
+
 func NewMockSchema() nftmngrtypes.NFTSchemaINPUT {
 	newSchema := nftmngrtypes.NFTSchemaINPUT{
 		Code:        "sixprotocol.divine_elite",

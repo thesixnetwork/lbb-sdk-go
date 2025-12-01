@@ -18,3 +18,17 @@ func GetJSONSchema() ([]byte, error) {
 
 	return schemaByte, nil
 }
+
+//go:embed metadata.json
+var metadata embed.FS
+
+func GetJSONMetadata() ([]byte, error) {
+	var metadataByte []byte
+
+	metadataByte, err := metadata.ReadFile("metadata.json")
+	if err != nil {
+		return metadataByte, fmt.Errorf("error on reading schema.json file: %+v", err)
+	}
+
+	return metadataByte, nil
+}
