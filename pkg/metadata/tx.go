@@ -2,10 +2,10 @@ package metadata
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
@@ -24,7 +24,13 @@ func NewMetadataMsg(a account.Account, nftSchemaCode string) *MetadataMsg {
 }
 
 func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error) {
-	schemaInput, err := GetSchemaInput()
+	var schemaInput nftmngrtypes.NFTSchemaINPUT
+	schemaInputBytes, err := GetSchemaByteFromJSON()
+	if err != nil {
+		return res, err
+	}
+
+	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(schemaInputBytes, &schemaInput)
 	if err != nil {
 		return res, err
 	}
@@ -35,7 +41,7 @@ func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error)
 	schemaInput.Name = schemaName
 	schemaInput.Description = schemaName
 
-	schemaBytes, err := json.Marshal(&schemaInput)
+	schemaBytes, err := m.Codec.(*codec.ProtoCodec).MarshalJSON(&schemaInput)
 	if err != nil {
 		return res, err
 	}
