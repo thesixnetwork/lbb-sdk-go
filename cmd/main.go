@@ -9,9 +9,9 @@ import (
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm"
 	// "github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
 	//"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
-	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 )
 
 const (
@@ -55,7 +55,7 @@ func main() {
 	// 	fmt.Printf("Mint error: %v\n", err)
 	// 	return
 	// }
-	// 
+	//
 	// var msgs []sdk.Msg
 
 	// msgs = append(msgs, msgCreateMetadata2)
@@ -79,10 +79,12 @@ func main() {
 	//	return
 	//}
 	//fmt.Printf("Unfreeze response: %v\n", res)
-	stringABI, err := assets.GetContractBINString()
+	evm := evm.NewEVMClient(*a)
+	address, tx, err := evm.DeployCertificateContract()
 	if err != nil {
-		fmt.Printf("GET ABI error: %v\n", err)
+		fmt.Printf("EVM error: %v\n", err)
 		return
 	}
-	fmt.Printf("THIS IS STRING ABI: %v \n", stringABI)
+
+	fmt.Printf("Deployed Tx: %+v, Address: %v \n", tx.Hash(), address)
 }

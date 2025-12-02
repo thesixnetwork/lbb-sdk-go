@@ -1,16 +1,14 @@
 package account
 
 import (
-	"crypto/ecdsa"
-	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	client "github.com/thesixnetwork/lbb-sdk-go/client"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bip39 "github.com/cosmos/go-bip39"
+	client "github.com/thesixnetwork/lbb-sdk-go/client"
 )
 
 const (
@@ -20,11 +18,12 @@ const (
 type AccountI interface {
 	GetCosmosAddress() sdk.AccAddress
 	GetEVMAddress() common.Address
-	GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error)
+	GetTransactionOps() *bind.TransactOpts
 }
 
 type Account struct {
 	client.Client
+	auth          *bind.TransactOpts
 	mnemonic      string
 	evmAddress    common.Address
 	cosmosAddress sdk.AccAddress
@@ -49,10 +48,26 @@ func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Acco
 		return nil
 	}
 
+	privateKey, err := CreatePrivateKeyFromMnemonic(mnemonic, password)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to generate PrivateKey from mnemonic '%s': %v\n", accountName, err)
+		return nil
+	}
+
+	fmt.Printf("chainID: %v\n", ChainIDMapping[ctx.ChainID])
+
+	authz, err := bind.NewKeyedTransactorWithChainID(privateKey, ChainIDMapping[ctx.ChainID])
+	if err != nil {
+		fmt.Printf("ERROR: Failed to bind account '%s': %v\n", accountName, err)
+		return nil
+	}
+
+
 	fmt.Printf("Account created successfully: %s (Cosmos: %s, EVM: %s)\n", accountName, cosmosAddress.String(), evmAddress.Hex())
 
 	return &Account{
 		Client:        ctx,
+		auth:          authz,
 		mnemonic:      mnemonic,
 		evmAddress:    evmAddress,
 		cosmosAddress: cosmosAddress,
@@ -64,19 +79,8 @@ func (a *Account) ValidateMnemonic(mnemonic string) bool {
 	return bip39.IsMnemonicValid(mnemonic)
 }
 
-func (*Account) GetPrivateKey(ctx client.Client, mnemonic string, password string) (*ecdsa.PrivateKey, error) {
-	if bip39.IsMnemonicValid(mnemonic) {
-		return &ecdsa.PrivateKey{}, errors.New("invalid mnemonic")
-	}
-
-	seed := bip39.NewSeed(mnemonic, password)
-
-	privateKey, err := crypto.ToECDSA(seed[:32])
-	if err != nil {
-		return &ecdsa.PrivateKey{}, err
-	}
-
-	return privateKey, nil
+func (a *Account) GetTransactionOps() *bind.TransactOpts {
+	return a.auth
 }
 
 func (a *Account) GetCosmosAddress() sdk.AccAddress {

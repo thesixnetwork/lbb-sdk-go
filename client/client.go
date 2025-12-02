@@ -32,7 +32,7 @@ const (
 
 type Client struct {
 	context.Context
-	ETHCleint         *ethclient.Client
+	ETHClient         *ethclient.Client
 	CosmosClientCTX   client.Context
 	Codec             codec.Codec
 	InterfaceRegistry codectypes.InterfaceRegistry
@@ -88,7 +88,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 		WithClient(rpcclient).
 		WithChainID(chainID)
 
-	evmClient, err := ethclient.Dial(rpcURL)
+	evmClient, err := ethclient.Dial(evmrpcURL)
 	if err != nil {
 		return Client{}, nil
 	}
@@ -96,7 +96,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 	return Client{
 		Context:           ctx,
 		CosmosClientCTX:   cosmosClientCTX,
-		ETHCleint:         evmClient,
+		ETHClient:         evmClient,
 		Codec:             encodingConfig.Codec,
 		InterfaceRegistry: encodingConfig.InterfaceRegistry,
 		LegacyAmino:       encodingConfig.Amino,
@@ -130,8 +130,13 @@ func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string
 		WithClient(rpcclient).
 		WithChainID(chainID)
 
+	evmClient, err := ethclient.Dial(evmRPC)
+	if err != nil {
+		return Client{}, nil
+	}
 	return Client{
 		Context:           ctx,
+		ETHClient:         evmClient,
 		CosmosClientCTX:   cosmosClientCTX,
 		Codec:             encodingConfig.Codec,
 		InterfaceRegistry: encodingConfig.InterfaceRegistry,
@@ -148,7 +153,7 @@ func (c *Client) GetRPCClient() string {
 }
 
 func (c *Client) GetETHClient() *ethclient.Client {
-	return c.ETHCleint
+	return c.ETHClient
 }
 
 func (c *Client) GetAPIClient() string {
