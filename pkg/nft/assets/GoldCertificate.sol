@@ -1,19 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC721} from "openzeppelin-contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "openzeppelin-contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
+import {ERC721URIStorage} from "openzeppelin-contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-/**
- * @title GoldCertificationNFT
- * @dev ERC721 contract for Gold Certification NFTs with Cosmos metadata integration
- *
- * This contract represents the EVM side of a hybrid NFT system where:
- * - NFT tokens exist on EVM chains (for trading and market access)
- * - Rich metadata and updates are managed on Cosmos (for cost efficiency)
- * - Token URIs point to a bridge API that fetches live data from Cosmos
- */
 contract GoldCertificateNFT is ERC721, ERC721URIStorage, Ownable {
     uint256 private _nextTokenId = 1;
 
