@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 
-	"github.com/thesixnetwork/lbb-sdk-go/config"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -12,6 +11,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/thesixnetwork/lbb-sdk-go/config"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 const (
@@ -30,6 +32,7 @@ const (
 
 type Client struct {
 	context.Context
+	ETHCleint         *ethclient.Client
 	CosmosClientCTX   client.Context
 	Codec             codec.Codec
 	InterfaceRegistry codectypes.InterfaceRegistry
@@ -43,6 +46,7 @@ type Client struct {
 type ClientI interface {
 	GetClientCTX() client.Context
 	GetKeyring() keyring.Keyring
+	GetETHClient() *ethclient.Client
 }
 
 var _ ClientI = (*Client)(nil)
@@ -84,9 +88,15 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 		WithClient(rpcclient).
 		WithChainID(chainID)
 
+	evmClient, err := ethclient.Dial(rpcURL)
+	if err != nil {
+		return Client{}, nil
+	}
+
 	return Client{
 		Context:           ctx,
 		CosmosClientCTX:   cosmosClientCTX,
+		ETHCleint:         evmClient,
 		Codec:             encodingConfig.Codec,
 		InterfaceRegistry: encodingConfig.InterfaceRegistry,
 		LegacyAmino:       encodingConfig.Amino,
@@ -135,6 +145,10 @@ func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string
 
 func (c *Client) GetRPCClient() string {
 	return c.RPCClient
+}
+
+func (c *Client) GetETHClient() *ethclient.Client {
+	return c.ETHCleint
 }
 
 func (c *Client) GetAPIClient() string {

@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	// "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	// sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
-	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
+	// "github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
 	//"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 )
 
 const (
@@ -48,23 +49,23 @@ func main() {
 	// 	return
 	// }
 
-	meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
-	msgCreateMetadata2, err := meta.BuildMintMetadataMsg("3")
-	if err != nil {
-		fmt.Printf("Mint error: %v\n", err)
-		return
-	}
-	
-	var msgs []sdk.Msg
+	// meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
+	// msgCreateMetadata2, err := meta.BuildMintMetadataMsg("3")
+	// if err != nil {
+	// 	fmt.Printf("Mint error: %v\n", err)
+	// 	return
+	// }
+	// 
+	// var msgs []sdk.Msg
 
-	msgs = append(msgs, msgCreateMetadata2)
+	// msgs = append(msgs, msgCreateMetadata2)
 
-	res, err := meta.BroadcastTx(msgs...)
-	if err != nil {
-		fmt.Printf("Mint error: %v\n", err)
-	}
+	// res, err := meta.BroadcastTx(msgs...)
+	// if err != nil {
+	// 	fmt.Printf("Mint error: %v\n", err)
+	// }
 
-	fmt.Printf("Freeze response: %v\n", res)
+	// fmt.Printf("Freeze response: %v\n", res)
 	//res, err := meta.FreezeCertificate("1")
 	//if err != nil {
 	//	fmt.Printf("Freeze error: %v\n", err)
@@ -78,4 +79,10 @@ func main() {
 	//	return
 	//}
 	//fmt.Printf("Unfreeze response: %v\n", res)
+	stringABI, err := assets.GetContractBINString()
+	if err != nil {
+		fmt.Printf("GET ABI error: %v\n", err)
+		return
+	}
+	fmt.Printf("THIS IS STRING ABI: %v \n", stringABI)
 }
