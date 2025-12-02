@@ -79,6 +79,6 @@ func (e *EVMClient) DeployCertificateContract() (common.Address, *types.Transact
 	return address, tx, nil
 }
 
-func (e *EVMClient) MintCertificateNFT(contractAdderss common.Address, tokenID string) (common.Address, *types.Transaction, error) {
-
+func (e *EVMClient) MintCertificateNFT(contractAdderss common.Address, tokenID string) (address common.Address, tx *types.Transaction, err error) {
+	return address, tx, nil
 }
