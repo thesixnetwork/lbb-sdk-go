@@ -24,16 +24,16 @@ func NewMetadataMsg(a account.Account, nftSchemaCode string) *MetadataMsg {
 	}
 }
 
-func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error) {
+func (m *MetadataMsg) BuildDeployMsg() (msg *nftmngrtypes.MsgCreateNFTSchema, err error) {
 	var schemaInput nftmngrtypes.NFTSchemaINPUT
 	schemaInputBytes, err := assets.GetJSONSchema()
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 
 	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(schemaInputBytes, &schemaInput)
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 
 	schemaName := strings.ReplaceAll(m.nftSchemaCode, ".", "_")
@@ -44,14 +44,23 @@ func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error)
 
 	schemaBytes, err := m.Codec.(*codec.ProtoCodec).MarshalJSON(&schemaInput)
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 
 	base64Schema := base64.StdEncoding.EncodeToString(schemaBytes)
 
-	msg := &nftmngrtypes.MsgCreateNFTSchema{
+	msg = &nftmngrtypes.MsgCreateNFTSchema{
 		Creator:         m.GetCosmosAddress().String(),
 		NftSchemaBase64: base64Schema,
+	}
+
+	return msg, nil
+}
+
+func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error) {
+	msg, err := m.BuildDeployMsg()
+	if err != nil {
+		return res, err
 	}
 
 	res, err = m.BroadcastTx(msg)
@@ -66,16 +75,16 @@ func (m *MetadataMsg) DeployCertificateSchema() (res *sdk.TxResponse, err error)
 	return res, nil
 }
 
-func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResponse, err error) {
+func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.MsgCreateMetadata, err error) {
 	var metadataInput nftmngrtypes.NftData
 
 	metadataBytes, err := assets.GetJSONMetadata()
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 
 	metadataInput.NftSchemaCode = m.nftSchemaCode
@@ -85,16 +94,25 @@ func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResp
 
 	metadataBytes, err = m.Codec.(*codec.ProtoCodec).MarshalJSON(&metadataInput)
 	if err != nil {
-		return res, err
+		return msg, err
 	}
 
 	base64Metadata := base64.StdEncoding.EncodeToString(metadataBytes)
 
-	msg := &nftmngrtypes.MsgCreateMetadata{
+	msg = &nftmngrtypes.MsgCreateMetadata{
 		Creator:       m.GetCosmosAddress().String(),
 		NftSchemaCode: m.nftSchemaCode,
 		TokenId:       tokenID,
 		Base64NFTData: base64Metadata,
+	}
+
+	return msg, nil
+}
+
+func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResponse, err error) {
+	msg, err := m.BuildMintMetadataMsg(tokenID)
+	if err != nil {
+		return res, err
 	}
 
 	res, err = m.BroadcastTx(msg)

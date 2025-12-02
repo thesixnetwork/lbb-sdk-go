@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	// "cosmossdk.io/math"
-	// sdk "github.com/cosmos/cosmos-sdk/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
@@ -49,20 +49,22 @@ func main() {
 	// }
 
 	meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
-	//res, err := meta.DeployCertificateSchema()
-	//if err != nil {
-	//	fmt.Printf("Deploy error: %v\n", err)
-	//	return
-	//}
-	//fmt.Printf("Deploy response: %v\n", res)
+	msgCreateMetadata2, err := meta.BuildMintMetadataMsg("3")
+	if err != nil {
+		fmt.Printf("Mint error: %v\n", err)
+		return
+	}
+	
+	var msgs []sdk.Msg
 
-	// res, err := meta.CreateCertificateMetadata("1")
-	// if err != nil {
-	// 	fmt.Printf("Mint error: %v\n", err)
-	// 	return
-	// }
-	// fmt.Printf("Mint response: %v\n", res)
-	//
+	msgs = append(msgs, msgCreateMetadata2)
+
+	res, err := meta.BroadcastTx(msgs...)
+	if err != nil {
+		fmt.Printf("Mint error: %v\n", err)
+	}
+
+	fmt.Printf("Freeze response: %v\n", res)
 	//res, err := meta.FreezeCertificate("1")
 	//if err != nil {
 	//	fmt.Printf("Freeze error: %v\n", err)
@@ -70,10 +72,10 @@ func main() {
 	//}
 	//fmt.Printf("Freeze response: %v\n", res)
 
-	res, err := meta.UnfreezeCertificate("1")
-	if err != nil {
-		fmt.Printf("Unfreeze error: %v\n", err)
-		return
-	}
-	fmt.Printf("Unfreeze response: %v\n", res)
+	//res, err := meta.UnfreezeCertificate("1")
+	//if err != nil {
+	//	fmt.Printf("Unfreeze error: %v\n", err)
+	//	return
+	//}
+	//fmt.Printf("Unfreeze response: %v\n", res)
 }

@@ -16,6 +16,15 @@ func NewBalanceMsg(a account.Account) *BalanceMsg {
 	}
 }
 
+func (b *BalanceMsg) BuildSendMsg(dest string, amount sdk.Coins) (msg *banktypes.MsgSend, err error) {
+	msg = &banktypes.MsgSend{
+		FromAddress: b.GetCosmosAddress().String(),
+		ToAddress:   dest,
+		Amount:      amount,
+	}
+	return msg, nil
+}
+
 func (b *BalanceMsg) SendBalance(dest string, amount sdk.Coins) (res *sdk.TxResponse, err error) {
 	sendMsg := &banktypes.MsgSend{
 		FromAddress: b.GetCosmosAddress().String(),

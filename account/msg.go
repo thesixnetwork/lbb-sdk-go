@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	GasLimit      = uint64(300000) // Higher gas limit for SixProtocol operations
+	GasLimit      = uint64(1000000) // Higher gas limit for SixProtocol operations
 	GasPrice      = "1.25usix"
 	GasAdjustment = 1.5
 )
