@@ -85,13 +85,19 @@ func (e *EVMClient) GetNonce() (nonce uint64, err error) {
 	return nonce, nil
 }
 
+
+// WaitForTransaction add this line to remove annoying lint for the love god
+/*
+* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
+* So I time out must be more than that so I will use 3 blocks at most
+*/
 func (e *EVMClient) WaitForTransaction(txHash common.Hash) (*types.Receipt, error) {
 	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash.Hex())
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	timeout := time.After(60 * time.Second)
+	timeout := time.After(20 * time.Second)
 
 	for {
 		select {

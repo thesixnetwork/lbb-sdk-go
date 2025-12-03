@@ -3,7 +3,6 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -64,8 +63,6 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 }
 
 func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID string) (tx *types.Transaction, err error) {
-	fmt.Printf("Contract Address: %v, TokenID: %v \n", contractAddress, tokenID)
-
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -135,14 +132,14 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 		return &types.Transaction{}, err
 	}
 
-	tokenIDInt, err := strconv.Atoi(tokenID)
+	// Get numeric token ID from string token ID
+	numericTokenID, err := e.GetNumericTokenID(contractAddress, tokenID)
 	if err != nil {
-		return &types.Transaction{}, err
+		return &types.Transaction{}, fmt.Errorf("failed to get numeric token ID: %w", err)
 	}
 
-	tokenIdptr := big.NewInt(int64(tokenIDInt))
 	// Pack the function call
-	data, err := contractABI.Pack("safeTransferFrom", e.GetEVMAddress(), destAddress, tokenIdptr)
+	data, err := contractABI.Pack("safeTransferFrom", e.GetEVMAddress(), destAddress, numericTokenID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack data: %w", err)
 	}
