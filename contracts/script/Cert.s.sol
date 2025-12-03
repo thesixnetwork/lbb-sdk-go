@@ -17,10 +17,10 @@ contract DeployScript is Script {
     uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
     vm.startBroadcast(deployerPrivateKey);
 
-    GoldCertificateNFT certNFT = new GoldCertificateNFT("MEM", "MEMBERSHIP", "https://picsum.photos/", "https://picsum.photos/");
+    GoldCertificateNFT certNFT = new GoldCertificateNFT("CERT", "CERTIFICATE", "https://picsum.photos/", "https://picsum.photos/", ownerAddress);
     nonceUp(ownerAddress);
     address certNFTAddress = address(certNFT);
-    console.log("membershipt address: ", certNFTAddress);
+    console.log("cert : ", certNFTAddress);
 
     certNFT.safeMint(ownerAddress, "1");
     nonceUp(ownerAddress);

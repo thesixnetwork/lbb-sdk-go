@@ -1,0 +1,10 @@
+{
+  "transactions": [
+    {
+      "rpc": "https://rpc-evm.fivenet.sixprotocol.net:443"
+    },
+    {
+      "rpc": "https://rpc-evm.fivenet.sixprotocol.net:443"
+    }
+  ]
+}

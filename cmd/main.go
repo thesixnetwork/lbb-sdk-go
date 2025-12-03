@@ -6,6 +6,7 @@ import (
 
 	// "cosmossdk.io/math"
 	// sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
@@ -27,6 +28,10 @@ func main() {
 		"http://localhost:8545",
 		"testnet",
 	)
+	//client, err := client.NewClient(
+	//	context.Background(),
+	//	true,
+	//)
 	if err != nil {
 		panic(fmt.Sprintf("ERROR CREATE CLEINT %v", err))
 	}
@@ -80,11 +85,29 @@ func main() {
 	//}
 	//fmt.Printf("Unfreeze response: %v\n", res)
 	evm := evm.NewEVMClient(*a)
-	address, tx, err := evm.DeployCertificateContract()
+	// address, tx, err := evm.DeployCertificateContract("NFT", "NFT", "sixnetwork.hamdee")
+	// if err != nil {
+	// 	fmt.Printf("EVM error: %v\n", err)
+	// 	return
+	// }
+
+	// fmt.Printf("Deploy at: %v\n", tx.Hash())
+	// fmt.Printf("Deploy at Nonce: %v\n", tx.Nonce())
+	// fmt.Printf("Contract Address: %v\n", address)
+
+	// tx, err = evm.MintCertificateNFT(address, "2")
+	// if err != nil {
+	// 	fmt.Printf("EVM error: %v\n", err)
+	// 	return
+	// }
+
+	// fmt.Printf("Mint Tx: %+v \n", tx.Hash() )
+	// fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
+	tx, err := evm.TransferCertificateNFT(common.HexToAddress("0x5429855fd57E444De296A07dd0f0BF6f3aCc0F5A"), common.HexToAddress("0xd907f36f7D83344057a619b6D83A45B3288c3c21"), "2")
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
 	}
-
-	fmt.Printf("Deployed Tx: %+v, Address: %v \n", tx.Hash(), address)
+	fmt.Printf("Transfer Tx: %+v \n", tx.Hash())
+	fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
 }

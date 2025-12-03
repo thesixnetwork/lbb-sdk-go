@@ -1,6 +1,7 @@
 package account
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,13 +19,13 @@ const (
 type AccountI interface {
 	GetCosmosAddress() sdk.AccAddress
 	GetEVMAddress() common.Address
-	GetTransactionOps() *bind.TransactOpts
 }
 
 type Account struct {
 	client.Client
 	auth          *bind.TransactOpts
 	mnemonic      string
+	privateKey    *ecdsa.PrivateKey
 	evmAddress    common.Address
 	cosmosAddress sdk.AccAddress
 	accountName   string
@@ -54,20 +55,18 @@ func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Acco
 		return nil
 	}
 
-	fmt.Printf("chainID: %v\n", ChainIDMapping[ctx.ChainID])
-
 	authz, err := bind.NewKeyedTransactorWithChainID(privateKey, ChainIDMapping[ctx.ChainID])
 	if err != nil {
 		fmt.Printf("ERROR: Failed to bind account '%s': %v\n", accountName, err)
 		return nil
 	}
 
-
 	fmt.Printf("Account created successfully: %s (Cosmos: %s, EVM: %s)\n", accountName, cosmosAddress.String(), evmAddress.Hex())
 
 	return &Account{
 		Client:        ctx,
 		auth:          authz,
+		privateKey:    privateKey,
 		mnemonic:      mnemonic,
 		evmAddress:    evmAddress,
 		cosmosAddress: cosmosAddress,
@@ -77,6 +76,10 @@ func NewAccount(ctx client.Client, accountName, mnemonic, password string) *Acco
 
 func (a *Account) ValidateMnemonic(mnemonic string) bool {
 	return bip39.IsMnemonicValid(mnemonic)
+}
+
+func (a *Account) GetPrivateKey() *ecdsa.PrivateKey {
+	return a.privateKey
 }
 
 func (a *Account) GetTransactionOps() *bind.TransactOpts {
