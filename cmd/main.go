@@ -17,8 +17,8 @@ import (
 
 const (
 	BobAddress    = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
-	BobEVMAddres = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
-	nftSchemaName = "mytest.testschema"
+	BobEVMAddres = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
+	nftSchemaName = "sixnetwork.lbbv01" // {ORGNAME}.{Schemacode}
 	contractName = "MyNFTCert"
 	contractSymbol = "Cert"
 )
