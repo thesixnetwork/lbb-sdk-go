@@ -62,10 +62,8 @@ func main() {
 		return
 	}
 
-	metaClient := metadata.NewMetadataClient(*a)
-
 	// Wait for SendBalance transaction to be confirmed
-	err = metaClient.WaitForTransaction(res.TxHash)
+	err = client.WaitForTransaction(res.TxHash)
 	if err != nil {
 		fmt.Printf("Error waiting for SendBalance: %v\n", err)
 		return
@@ -85,7 +83,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Mint error: %v\n", err)
 	}
-	err = metaClient.WaitForTransaction(res.TxHash)
+	err = client.WaitForTransaction(res.TxHash)
 	if err != nil {
 		fmt.Printf("Error waiting for deployment: %v\n", err)
 		return
@@ -97,7 +95,7 @@ func main() {
 		return
 	}
 
-	err = metaClient.WaitForTransaction(res.TxHash)
+	err = client.WaitForTransaction(res.TxHash)
 	if err != nil {
 		fmt.Printf("Error waiting for deployment: %v\n", err)
 		return
@@ -122,7 +120,7 @@ func main() {
 	fmt.Printf("Contract Address: %v\n", address)
 
 	// Wait for deployment transaction to be mined
-	_, err = evm.WaitForTransaction(tx.Hash())
+	_, err = client.WaitForEVMTransaction(tx.Hash())
 	if err != nil {
 		fmt.Printf("Error waiting for deployment: %v\n", err)
 		return
@@ -136,7 +134,7 @@ func main() {
 	fmt.Printf("Mint Tx: %+v \n", tx.Hash())
 	fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
 
-	_, err = evm.WaitForTransaction(tx.Hash())
+	_, err = client.WaitForEVMTransaction(tx.Hash())
 	if err != nil {
 		fmt.Printf("Error waiting for deployment: %v\n", err)
 		return
@@ -150,7 +148,7 @@ func main() {
 	fmt.Printf("Transfer Tx: %+v \n", tx.Hash())
 	fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
 
-	_, err = evm.WaitForTransaction(tx.Hash())
+	_, err = client.WaitForEVMTransaction(tx.Hash())
 	if err != nil {
 		fmt.Printf("Error waiting for deployment: %v\n", err)
 		return

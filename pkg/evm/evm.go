@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -83,38 +82,6 @@ func (e *EVMClient) GetNonce() (nonce uint64, err error) {
 	}
 
 	return nonce, nil
-}
-
-
-// WaitForTransaction add this line to remove annoying lint for the love god
-/*
-* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
-* So I time out must be more than that so I will use 3 blocks at most
-*/
-func (e *EVMClient) WaitForTransaction(txHash common.Hash) (*types.Receipt, error) {
-	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash.Hex())
-
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	timeout := time.After(20 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			return nil, fmt.Errorf("timeout waiting for transaction to be mined")
-		case <-ticker.C:
-			receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
-			if err == nil {
-				if receipt.Status == 0 {
-					return receipt, fmt.Errorf("transaction failed")
-				}
-				fmt.Printf("Transaction mined in block %d\n", receipt.BlockNumber.Uint64())
-				return receipt, nil
-			}
-			// Transaction not yet mined, continue waiting
-		}
-	}
 }
 
 func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {

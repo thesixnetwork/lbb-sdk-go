@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -13,6 +15,8 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/thesixnetwork/lbb-sdk-go/config"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -178,6 +182,70 @@ func (c *Client) GetKeyring() keyring.Keyring {
 
 func (c *Client) GetContext() context.Context {
 	return c.Context
+}
+
+
+// WaitForTransaction add this line to remove annoying lint for the love god
+/*
+* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
+* So I time out must be more than that so I will use 3 blocks at most
+*/
+
+func (c *Client) WaitForTransaction(txhash string) error {
+	fmt.Printf("Waiting for transaction %s to be mined...\n", txhash)
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(20 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for transaction to be mined")
+		case <-ticker.C:
+			output, err := authtx.QueryTx(c.CosmosClientCTX, txhash)
+			if err != nil {
+				return err
+			}
+			if output.Empty() {
+				return fmt.Errorf("no transaction found with hash %s", txhash)
+			}
+			return nil
+		}
+		// continue
+	}
+}
+
+// WaitForEVMTransaction add this line to remove annoying lint for the love god
+/*
+* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
+* So I time out must be more than that so I will use 3 blocks at most
+*/
+func (e *Client) WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, error) {
+	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash.Hex())
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(20 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			return nil, fmt.Errorf("timeout waiting for transaction to be mined")
+		case <-ticker.C:
+			receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
+			if err == nil {
+				if receipt.Status == 0 {
+					return receipt, fmt.Errorf("transaction failed")
+				}
+				fmt.Printf("Transaction mined in block %d\n", receipt.BlockNumber.Uint64())
+				return receipt, nil
+			}
+			// Transaction not yet mined, continue waiting
+		}
+	}
 }
 
 func (c Client) WithFrom(from string) Client {
