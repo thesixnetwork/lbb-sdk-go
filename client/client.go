@@ -186,10 +186,10 @@ func (c *Client) GetContext() context.Context {
 }
 
 
-// WaitForTransaction add this line to remove annoying lint for the love god
+// WaitForTransaction add this line to remove annoying lint for the love of god
 /*
 * NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
-* So I time out must be more than that so I will use 3 blocks at most
+* So time out must be more than that, We will use 3 blocks at most
 */
 
 func (c *Client) WaitForTransaction(txhash string) error {
@@ -212,13 +212,16 @@ func (c *Client) WaitForTransaction(txhash string) error {
 			if output.Empty() {
 				return fmt.Errorf("no transaction found with hash %s", txhash)
 			}
+			if output.Code > 0 {
+				return fmt.Errorf("transaction failed: %v", output.Logs)
+			}
 			return nil
 		}
 		// continue
 	}
 }
 
-// WaitForEVMTransaction add this line to remove annoying lint for the love god
+// WaitForEVMTransaction add this line to remove annoying lint for the love of god
 /*
 * NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
 * So I time out must be more than that so I will use 3 blocks at most
