@@ -16,11 +16,16 @@ import (
 )
 
 const (
-	BobAddress = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
+	BobAddress    = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
+	BobEVMAddres = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
+	nftSchemaName = "mytest.testschema"
+	contractName = "MyNFTCert"
+	contractSymbol = "Cert"
 )
 
 func main() {
 	// Initialize Client
+	// Testing local or run replicate node use CustomClient
 	client, err := client.NewCustomClient(
 		context.Background(),
 		"http://localhost:26657",
@@ -28,14 +33,17 @@ func main() {
 		"http://localhost:8545",
 		"testnet",
 	)
-	//client, err := client.NewClient(
-	//	context.Background(),
-	//	true,
-	//)
 	if err != nil {
 		panic(fmt.Sprintf("ERROR CREATE CLEINT %v", err))
 	}
 
+	/*
+		   NOTE:: For test in official testnet or mainnet use NewClient
+			client, err := client.NewClient(
+				context.Background(),
+				true,
+			)
+	*/
 	a := account.NewAccount(client, "alice", account.TestMnemonic, "")
 	if a == nil {
 		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
@@ -62,8 +70,8 @@ func main() {
 		fmt.Printf("Error waiting for SendBalance: %v\n", err)
 		return
 	}
-	meta := metadata.NewMetadataMsg(*a, "sixnetwork.hamdee")
-	msgCreateMetadata2, err := meta.BuildMintMetadataMsg("3")
+	meta := metadata.NewMetadataMsg(*a, nftSchemaName)
+	msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
 	if err != nil {
 		fmt.Printf("Mint error: %v\n", err)
 		return
@@ -71,7 +79,7 @@ func main() {
 
 	var msgs []sdk.Msg
 
-	msgs = append(msgs, msgCreateMetadata2)
+	msgs = append(msgs, msgCreateMetadata)
 
 	res, err = meta.BroadcastTx(msgs...)
 	if err != nil {
@@ -103,7 +111,7 @@ func main() {
 	fmt.Printf("Unfreeze response: %v\n", res)
 
 	evm := evm.NewEVMClient(*a)
-	address, tx, err := evm.DeployCertificateContract("NFT", "NFT", "sixnetwork.hamdee")
+	address, tx, err := evm.DeployCertificateContract(contractName, contractSymbol, nftSchemaName)
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
@@ -120,7 +128,7 @@ func main() {
 		return
 	}
 
-	tx, err = evm.MintCertificateNFT(address, "2")
+	tx, err = evm.MintCertificateNFT(address, "1")
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
@@ -134,7 +142,7 @@ func main() {
 		return
 	}
 
-	tx, err = evm.TransferCertificateNFT(address, common.HexToAddress("0xd907f36f7D83344057a619b6D83A45B3288c3c21"), "2")
+	tx, err = evm.TransferCertificateNFT(address, common.HexToAddress(BobEVMAddres), "1")
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
@@ -148,6 +156,6 @@ func main() {
 		return
 	}
 
-	currentOwner := evm.CurrentOwner(address, "2")
+	currentOwner := evm.CurrentOwner(address, "1")
 	fmt.Printf("Current Owner: %+v \n", currentOwner)
 }
