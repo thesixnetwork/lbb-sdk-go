@@ -56,18 +56,18 @@ type ClientI interface {
 var _ ClientI = (*Client)(nil)
 
 // NewClient creates a new Client Context with properly initialized codecs
-func NewClient(ctx context.Context, testnet bool) (Client, error) {
+func NewClient(ctx context.Context, mainnet bool) (Client, error) {
 	var rpcURL, apiURL, evmrpcURL, chainID string
-	if testnet {
-		rpcURL = TestnetRPC
-		apiURL = TestnetAPI
-		evmrpcURL = TestnetEVMRPC
-		chainID = TestnetChainID
-	} else {
+	if mainnet {
 		rpcURL = MainnetRPC
 		apiURL = MainnetAPI
 		evmrpcURL = MainnetEVMRPC
 		chainID = MainnetChainID
+	} else {
+		rpcURL = TestnetRPC
+		apiURL = TestnetAPI
+		evmrpcURL = TestnetEVMRPC
+		chainID = TestnetChainID
 	}
 
 	encodingConfig := config.MakeConfig()
@@ -111,6 +111,7 @@ func NewClient(ctx context.Context, testnet bool) (Client, error) {
 	}, nil
 }
 
+// NewCustomClient creates a new Client Context with custom property to initialized codecs
 func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string) (Client, error) {
 	encodingConfig := config.MakeConfig()
 	cdc := encodingConfig.Codec

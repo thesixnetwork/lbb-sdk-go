@@ -41,7 +41,7 @@ func main() {
 		   NOTE:: For test in official testnet or mainnet use NewClient
 			client, err := client.NewClient(
 				context.Background(),
-				true,
+				false,
 			)
 	*/
 	a := account.NewAccount(client, "alice", account.TestMnemonic, "")
