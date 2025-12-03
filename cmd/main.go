@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	// "cosmossdk.io/math"
-	// sdk "github.com/cosmos/cosmos-sdk/types"
+	//sdk "github.com/cosmos/cosmos-sdk/types"
+	// "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm"
 	// "github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
-	//"github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
+	// "github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
 )
 
 const (
@@ -85,29 +86,44 @@ func main() {
 	//}
 	//fmt.Printf("Unfreeze response: %v\n", res)
 	evm := evm.NewEVMClient(*a)
-	// address, tx, err := evm.DeployCertificateContract("NFT", "NFT", "sixnetwork.hamdee")
-	// if err != nil {
-	// 	fmt.Printf("EVM error: %v\n", err)
-	// 	return
-	// }
-
-	// fmt.Printf("Deploy at: %v\n", tx.Hash())
-	// fmt.Printf("Deploy at Nonce: %v\n", tx.Nonce())
-	// fmt.Printf("Contract Address: %v\n", address)
-
-	// tx, err = evm.MintCertificateNFT(address, "2")
-	// if err != nil {
-	// 	fmt.Printf("EVM error: %v\n", err)
-	// 	return
-	// }
-
-	// fmt.Printf("Mint Tx: %+v \n", tx.Hash() )
-	// fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
-	tx, err := evm.TransferCertificateNFT(common.HexToAddress("0x5429855fd57E444De296A07dd0f0BF6f3aCc0F5A"), common.HexToAddress("0xd907f36f7D83344057a619b6D83A45B3288c3c21"), "2")
+	address, tx, err := evm.DeployCertificateContract("NFT", "NFT", "sixnetwork.hamdee")
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
 	}
-	fmt.Printf("Transfer Tx: %+v \n", tx.Hash())
-	fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
+
+	fmt.Printf("Deploy at: %v\n", tx.Hash())
+	fmt.Printf("Deploy at Nonce: %v\n", tx.Nonce())
+	fmt.Printf("Contract Address: %v\n", address)
+
+	// Wait for deployment transaction to be mined
+	_, err = evm.WaitForTransaction(tx.Hash())
+	if err != nil {
+		fmt.Printf("Error waiting for deployment: %v\n", err)
+		return
+	}
+
+	tx, err = evm.MintCertificateNFT(common.HexToAddress("0x67b18d8d5B82c7D8633a37d2909f6c82b7aCD6e7"), "1")
+	if err != nil {
+		fmt.Printf("EVM error: %v\n", err)
+		return
+	}
+	fmt.Printf("Mint Tx: %+v \n", tx.Hash())
+	fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
+
+	//tx, err = evm.TransferCertificateNFT(address, common.HexToAddress("0xd907f36f7D83344057a619b6D83A45B3288c3c21"), "2")
+	//if err != nil {
+	//	fmt.Printf("EVM error: %v\n", err)
+	//	return
+	//}
+	//fmt.Printf("Transfer Tx: %+v \n", tx.Hash())
+	//fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
+	//Check your transactions:
+	// err = evm.CheckTransactionReceipt()
+	// if err != nil {
+	// 	fmt.Printf("Mint transaction check: %v\n", err)
+	// }
+
+	//currentOwner := evm.CurrentOwner(common.HexToAddress("0x3224E227969A7a661798B59aF92fD250e9983dB6"), "2")
+	//fmt.Printf("Current Owner: %+v \n", currentOwner)
 }

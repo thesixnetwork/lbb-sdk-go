@@ -40,13 +40,22 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 		return common.Address{}, &types.Transaction{}, err
 	}
 
+	var construcArg []interface{}
+
+	construcArg = append(construcArg, contractName, symbol, "URL", "URL", e.GetEVMAddress())
+
 	auth := e.GetTransactionOps()
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = uint64(300000) // in units
+	auth.Value = big.NewInt(0) // in wei
+	gasLimit, err := e.EstimateDeployGas(contractABI, common.FromHex(stringBIN), construcArg...)
+	if err != nil {
+		return common.Address{}, &types.Transaction{}, err
+	}
+	fmt.Printf("Deploy Gas Limit: %v \n", gasLimit)
+	auth.GasLimit = gasLimit
 	auth.GasPrice = gasPrice
 
-	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), e.ETHClient, contractName, symbol, "URL", "URL", e.GetEVMAddress())
+	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), e.ETHClient, construcArg...)
 	if err != nil {
 		return common.Address{}, &types.Transaction{}, err
 	}
@@ -55,9 +64,11 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 }
 
 func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID string) (tx *types.Transaction, err error) {
+	fmt.Printf("Contract Address: %v, TokenID: %v \n", contractAddress, tokenID)
+
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
-		return  &types.Transaction{}, err
+		return &types.Transaction{}, err
 	}
 
 	contractABI, err := abi.JSON(strings.NewReader(stringABI))
@@ -72,9 +83,13 @@ func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID s
 	}
 
 	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
 		To:   &contractAddress,
 		Data: data,
 	})
+
+	fmt.Printf("Mint Gas Limit: %v \n", gasLimit)
+
 	if err != nil {
 		return &types.Transaction{}, err
 	}
@@ -109,10 +124,10 @@ func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID s
 	return signedTx, nil
 }
 
-func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destAddress common.Address ,tokenID string) (tx *types.Transaction, err error) {
+func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destAddress common.Address, tokenID string) (tx *types.Transaction, err error) {
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
-		return  &types.Transaction{}, err
+		return &types.Transaction{}, err
 	}
 
 	contractABI, err := abi.JSON(strings.NewReader(stringABI))
@@ -120,7 +135,7 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 		return &types.Transaction{}, err
 	}
 
-	tokenIDInt,err := strconv.Atoi(tokenID)
+	tokenIDInt, err := strconv.Atoi(tokenID)
 	if err != nil {
 		return &types.Transaction{}, err
 	}
@@ -133,6 +148,7 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 	}
 
 	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
 		To:   &contractAddress,
 		Data: data,
 	})

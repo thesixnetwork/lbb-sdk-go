@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -34,8 +35,36 @@ func (e *EVMClient) GasPrice() (*big.Int, error) {
 func (e *EVMClient) GasLimit(callMsg ethereum.CallMsg) (uint64, error) {
 	gasLimit, err := e.ETHClient.EstimateGas(e.GetContext(), callMsg)
 	if err != nil {
+		fmt.Printf("ERROR EstimateGas : %v \n", err)
 		return gasLimit, err
 	}
+	gasLimit = gasLimit * 120 / 100
+	return gasLimit, nil
+}
+
+func (e *EVMClient) EstimateDeployGas(contractABI abi.ABI, bytecode []byte, constructorArgs ...interface{}) (uint64, error) {
+	var data []byte
+	if len(constructorArgs) > 0 {
+		packedArgs, err := contractABI.Pack("", constructorArgs...)
+		if err != nil {
+			return 0, fmt.Errorf("failed to pack constructor args: %w", err)
+		}
+		data = append(bytecode, packedArgs...)
+	} else {
+		data = bytecode
+	}
+
+	// Estimate gas for deployment
+	gasLimit, err := e.ETHClient.EstimateGas(e.GetContext(), ethereum.CallMsg{
+		From: e.GetEVMAddress(),
+		Data: data,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("gas estimation failed: %w", err)
+	}
+
+	// Add 20% buffer for safety
+	gasLimit = gasLimit * 120 / 100
 	return gasLimit, nil
 }
 
@@ -56,10 +85,55 @@ func (e *EVMClient) GetNonce() (nonce uint64, err error) {
 	return nonce, nil
 }
 
+func (e *EVMClient) WaitForTransaction(txHash common.Hash) (*types.Receipt, error) {
+	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash.Hex())
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(60 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			return nil, fmt.Errorf("timeout waiting for transaction to be mined")
+		case <-ticker.C:
+			receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
+			if err == nil {
+				if receipt.Status == 0 {
+					return receipt, fmt.Errorf("transaction failed")
+				}
+				fmt.Printf("Transaction mined in block %d\n", receipt.BlockNumber.Uint64())
+				return receipt, nil
+			}
+			// Transaction not yet mined, continue waiting
+		}
+	}
+}
+
+func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
+	receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
+	if err != nil {
+		return fmt.Errorf("failed to get receipt: %w", err)
+	}
+
+	fmt.Printf("Transaction: %s\n", txHash.Hex())
+	fmt.Printf("  Block Number: %d\n", receipt.BlockNumber.Uint64())
+	fmt.Printf("  Status: %d (1=success, 0=failed)\n", receipt.Status)
+	fmt.Printf("  Gas Used: %d\n", receipt.GasUsed)
+	fmt.Printf("  Contract Address: %s\n", receipt.ContractAddress.Hex())
+
+	if receipt.Status == 0 {
+		return fmt.Errorf("transaction failed")
+	}
+
+	return nil
+}
+
 func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName string, args interface{}) (tx *types.Transaction, err error) {
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
-		return  &types.Transaction{}, err
+		return &types.Transaction{}, err
 	}
 
 	contractABI, err := abi.JSON(strings.NewReader(stringABI))
@@ -74,6 +148,7 @@ func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName stri
 	}
 
 	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
 		To:   &contractAddress,
 		Data: data,
 	})
@@ -110,4 +185,3 @@ func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName stri
 
 	return signedTx, nil
 }
-
