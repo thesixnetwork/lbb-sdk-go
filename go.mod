@@ -3,6 +3,7 @@ module github.com/thesixnetwork/lbb-sdk-go
 go 1.24.2
 
 require (
+	cosmossdk.io/math v1.3.0
 	cosmossdk.io/x/tx v0.13.5
 	github.com/cometbft/cometbft v0.38.12
 	github.com/cosmos/cosmos-sdk v0.50.10
@@ -22,7 +23,6 @@ require (
 	cosmossdk.io/depinject v1.0.0 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/log v1.4.1 // indirect
-	cosmossdk.io/math v1.3.0 // indirect
 	cosmossdk.io/store v1.1.1 // indirect
 	cosmossdk.io/x/upgrade v0.1.4 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
