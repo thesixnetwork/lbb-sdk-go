@@ -33,7 +33,7 @@ contract LBBCert is ERC721, ERC721Enumerable, Ownable {
         return tokenId;
     }
 
-    function lastMint() public view virtual returns (uint256) {
+    function nextTokenId() public view virtual returns (uint256) {
         return _nextTokenId;
     }
 

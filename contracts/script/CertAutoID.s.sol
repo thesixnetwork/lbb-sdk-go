@@ -42,6 +42,11 @@ contract MintScript is Script {
   function setUp() public {
     ownerAddress = vm.envAddress("OWNER");
     currentNonce = vm.getNonce(ownerAddress);
+    string memory nftContractInfoPath = "./broadcast/CertAutoID.s.sol/150/run-latest.json";
+    string memory nftContractInfo = vm.readFile(nftContractInfoPath);
+    bytes memory certNFTJsonParsed = vm.parseJson(nftContractInfo, ".transactions[0].contractAddress");
+
+    certAddress = abi.decode(certNFTJsonParsed, (address));
   }
 
   function run() external {

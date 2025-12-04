@@ -24,6 +24,17 @@ contract LBBCert is ERC721, ERC721Enumerable, Ownable {
         address initialOwner
     ) ERC721(name, symbol) Ownable(initialOwner) {
         _baseTokenURI = baseURI;
+        _nextTokenId = 1;
+    }
+
+    function safeMint(address to) public onlyOwner returns (uint256) {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+        return tokenId;
+    }
+
+    function lastMint() public view virtual returns (uint256) {
+        return _nextTokenId;
     }
 
     // BASE URI
@@ -34,11 +45,7 @@ contract LBBCert is ERC721, ERC721Enumerable, Ownable {
     function setBaseURI(string calldata baseURI) external onlyOwner {
         _baseTokenURI = baseURI;
     }
-
-    function safeMint(address to, uint256 tokenId) public onlyOwner {
-        _safeMint(to, tokenId);
-    }
-
+    
     function tokenURI(
         uint256 tokenId
     ) public view virtual override returns (string memory) {
@@ -49,12 +56,6 @@ contract LBBCert is ERC721, ERC721Enumerable, Ownable {
             bytes(_baseTokenURI).length > 0
                 ? string(abi.encodePacked(_baseTokenURI, tokenId.toString()))
                 : "";
-    }
-
-    function safeMint(address to) public onlyOwner returns (uint256) {
-        uint256 tokenId = _nextTokenId++;
-        _safeMint(to, tokenId);
-        return tokenId;
     }
 
     // The following functions are overrides required by Solidity.
