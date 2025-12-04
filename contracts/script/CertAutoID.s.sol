@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import { LBBCert } from "../src/Cert.sol";
+import { LBBCert } from "../src/CertAutoID.sol";
 
 contract DeployScript is Script {
   address ownerAddress;
@@ -22,7 +22,7 @@ contract DeployScript is Script {
     address certNFTAddress = address(certNFT);
     console.log("cert : ", certNFTAddress);
 
-    certNFT.safeMint(ownerAddress, 1);
+    certNFT.safeMint(ownerAddress);
     nonceUp(ownerAddress);
 
     vm.stopBroadcast();
@@ -49,7 +49,7 @@ contract MintScript is Script {
     vm.startBroadcast(deployerPrivateKey);
 
     LBBCert certNFT = LBBCert(payable(certAddress));
-    certNFT.safeMint(ownerAddress, 1);
+    certNFT.safeMint(ownerAddress);
     nonceUp(ownerAddress);
 
     vm.stopBroadcast();
@@ -68,7 +68,7 @@ contract TransferToken is Script {
 
   function setUp() public {
     ownerAddress = vm.envAddress("OWNER");
-    string memory nftContractInfoPath = "./broadcast/Cert.s.sol/666/run-latest.json";
+    string memory nftContractInfoPath = "./broadcast/CertAutoID.s.sol/666/run-latest.json";
     string memory nftContractInfo = vm.readFile(nftContractInfoPath);
     bytes memory certNFTJsonParsed = vm.parseJson(nftContractInfo, ".transactions[0].contractAddress");
 
@@ -80,7 +80,7 @@ contract TransferToken is Script {
     LBBCert certNFT = LBBCert(payable(certNFTContractAddress));
     vm.startBroadcast(deployerPrivateKey);
 
-    certNFT.transferFrom(ownerAddress, 0x3753C81072A56072840990D3D02f354Efb7425A3, 5);
+    certNFT.transferFrom(ownerAddress, 0x3753C81072A56072840990D3D02f354Efb7425A3, 1);
 
     vm.stopBroadcast();
   }

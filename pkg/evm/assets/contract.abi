@@ -13,16 +13,6 @@
                     "internalType": "string"
                 },
                 {
-                    "name": "baseTokenURI",
-                    "type": "string",
-                    "internalType": "string"
-                },
-                {
-                    "name": "_contractURI",
-                    "type": "string",
-                    "internalType": "string"
-                },
-                {
                     "name": "initialOwner",
                     "type": "address",
                     "internalType": "address"
@@ -69,43 +59,6 @@
         },
         {
             "type": "function",
-            "name": "batchMint",
-            "inputs": [
-                {
-                    "name": "recipients",
-                    "type": "address[]",
-                    "internalType": "address[]"
-                },
-                {
-                    "name": "tokenIdStrings",
-                    "type": "string[]",
-                    "internalType": "string[]"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "uint256[]",
-                    "internalType": "uint256[]"
-                }
-            ],
-            "stateMutability": "nonpayable"
-        },
-        {
-            "type": "function",
-            "name": "contractURI",
-            "inputs": [],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "stateMutability": "view"
-        },
-        {
-            "type": "function",
             "name": "getApproved",
             "inputs": [
                 {
@@ -119,44 +72,6 @@
                     "name": "",
                     "type": "address",
                     "internalType": "address"
-                }
-            ],
-            "stateMutability": "view"
-        },
-        {
-            "type": "function",
-            "name": "getStringFromTokenId",
-            "inputs": [
-                {
-                    "name": "tokenId",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "stateMutability": "view"
-        },
-        {
-            "type": "function",
-            "name": "getTokenIdFromString",
-            "inputs": [
-                {
-                    "name": "tokenIdString",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "uint256",
-                    "internalType": "uint256"
                 }
             ],
             "stateMutability": "view"
@@ -247,18 +162,12 @@
                     "internalType": "address"
                 },
                 {
-                    "name": "tokenIdString",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
+                    "name": "tokenId",
                     "type": "uint256",
                     "internalType": "uint256"
                 }
             ],
+            "outputs": [],
             "stateMutability": "nonpayable"
         },
         {
@@ -332,70 +241,6 @@
         },
         {
             "type": "function",
-            "name": "setBaseURI",
-            "inputs": [
-                {
-                    "name": "newBaseURI",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-        },
-        {
-            "type": "function",
-            "name": "setContractURI",
-            "inputs": [
-                {
-                    "name": "newContractURI",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-        },
-        {
-            "type": "function",
-            "name": "stringToTokenId",
-            "inputs": [
-                {
-                    "name": "",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                }
-            ],
-            "stateMutability": "view"
-        },
-        {
-            "type": "function",
-            "name": "stringTokenExists",
-            "inputs": [
-                {
-                    "name": "tokenIdString",
-                    "type": "string",
-                    "internalType": "string"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "",
-                    "type": "bool",
-                    "internalType": "bool"
-                }
-            ],
-            "stateMutability": "view"
-        },
-        {
-            "type": "function",
             "name": "supportsInterface",
             "inputs": [
                 {
@@ -428,10 +273,10 @@
         },
         {
             "type": "function",
-            "name": "tokenIdToString",
+            "name": "tokenByIndex",
             "inputs": [
                 {
-                    "name": "",
+                    "name": "index",
                     "type": "uint256",
                     "internalType": "uint256"
                 }
@@ -439,8 +284,32 @@
             "outputs": [
                 {
                     "name": "",
-                    "type": "string",
-                    "internalType": "string"
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "tokenOfOwnerByIndex",
+            "inputs": [
+                {
+                    "name": "owner",
+                    "type": "address",
+                    "internalType": "address"
+                },
+                {
+                    "name": "index",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256",
+                    "internalType": "uint256"
                 }
             ],
             "stateMutability": "view"
@@ -565,64 +434,6 @@
         },
         {
             "type": "event",
-            "name": "BaseURIUpdated",
-            "inputs": [
-                {
-                    "name": "newBaseURI",
-                    "type": "string",
-                    "indexed": false,
-                    "internalType": "string"
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
-            "name": "BatchMetadataUpdate",
-            "inputs": [
-                {
-                    "name": "_fromTokenId",
-                    "type": "uint256",
-                    "indexed": false,
-                    "internalType": "uint256"
-                },
-                {
-                    "name": "_toTokenId",
-                    "type": "uint256",
-                    "indexed": false,
-                    "internalType": "uint256"
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
-            "name": "ContractURIUpdated",
-            "inputs": [
-                {
-                    "name": "newContractURI",
-                    "type": "string",
-                    "indexed": false,
-                    "internalType": "string"
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
-            "name": "MetadataUpdate",
-            "inputs": [
-                {
-                    "name": "_tokenId",
-                    "type": "uint256",
-                    "indexed": false,
-                    "internalType": "uint256"
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
             "name": "OwnershipTransferred",
             "inputs": [
                 {
@@ -636,31 +447,6 @@
                     "type": "address",
                     "indexed": true,
                     "internalType": "address"
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
-            "name": "TokenMinted",
-            "inputs": [
-                {
-                    "name": "to",
-                    "type": "address",
-                    "indexed": true,
-                    "internalType": "address"
-                },
-                {
-                    "name": "tokenId",
-                    "type": "uint256",
-                    "indexed": true,
-                    "internalType": "uint256"
-                },
-                {
-                    "name": "tokenIdString",
-                    "type": "string",
-                    "indexed": false,
-                    "internalType": "string"
                 }
             ],
             "anonymous": false
@@ -689,6 +475,11 @@
                 }
             ],
             "anonymous": false
+        },
+        {
+            "type": "error",
+            "name": "ERC721EnumerableForbiddenBatchMint",
+            "inputs": []
         },
         {
             "type": "error",
@@ -788,6 +579,22 @@
             "inputs": [
                 {
                     "name": "tokenId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ]
+        },
+        {
+            "type": "error",
+            "name": "ERC721OutOfBoundsIndex",
+            "inputs": [
+                {
+                    "name": "owner",
+                    "type": "address",
+                    "internalType": "address"
+                },
+                {
+                    "name": "index",
                     "type": "uint256",
                     "internalType": "uint256"
                 }

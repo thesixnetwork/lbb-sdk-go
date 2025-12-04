@@ -3,10 +3,10 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 
-import { GoldCertificateNFT } from "../src/GoldCertificate.sol";
+import { LBBCert } from "../src/Cert.sol";
 
 contract CertNFTTest is Test {
-    GoldCertificateNFT public myNft;
+    LBBCert public myNft;
 
    //  function setUp() public {
    //      myNft = new GoldCertificateNFT("TEST","TEST", "", "");
