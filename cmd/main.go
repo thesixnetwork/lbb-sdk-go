@@ -23,6 +23,17 @@ const (
 	contractSymbol = "Cert"
 )
 
+func init(){
+	mnemonic, _ := account.GenerateMnemonic()
+	fmt.Println("-----------------------------------------------------")
+	fmt.Println()
+	fmt.Println()
+	fmt.Printf("THIS IS JUST DEMO HOW TO GEN MNEMONIC \n: %+v \n",mnemonic)
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("-----------------------------------------------------")
+}
+
 func main() {
 	// Initialize Client
 	// Testing local or run replicate node use CustomClient
@@ -69,6 +80,13 @@ func main() {
 		return
 	}
 	meta := metadata.NewMetadataMsg(*a, nftSchemaName)
+
+	msgDeploySchema, err := meta.BuildDeployMsg()
+		if err != nil {
+		fmt.Printf("Deploy error: %v\n", err)
+		return
+	}
+
 	msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
 	if err != nil {
 		fmt.Printf("Mint error: %v\n", err)
@@ -77,7 +95,7 @@ func main() {
 
 	var msgs []sdk.Msg
 
-	msgs = append(msgs, msgCreateMetadata)
+	msgs = append(msgs,msgDeploySchema,msgCreateMetadata)
 
 	res, err = meta.BroadcastTx(msgs...)
 	if err != nil {
@@ -126,7 +144,7 @@ func main() {
 		return
 	}
 
-	tx, err = evm.MintCertificateNFT(address, "1")
+	tx, err = evm.MintCertificateNFT(address,1)
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
@@ -140,7 +158,7 @@ func main() {
 		return
 	}
 
-	tx, err = evm.TransferCertificateNFT(address, common.HexToAddress(BobEVMAddres), "1")
+	tx, err = evm.TransferCertificateNFT(address, common.HexToAddress(BobEVMAddres), 1)
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return
@@ -154,6 +172,6 @@ func main() {
 		return
 	}
 
-	currentOwner := evm.CurrentOwner(address, "1")
+	currentOwner := evm.TokenOwner(address, 1)
 	fmt.Printf("Current Owner: %+v \n", currentOwner)
 }
