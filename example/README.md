@@ -1,5 +1,8 @@
-> [!IMPORTANT]  
-> root/cmd/main.go is the uptodate one please take a look at that if this emample failed
+> [!IMPORTANT]
+> If the example in `example/main.go` fails, please refer to `cmd/main.go` in the root directory—this is the most up-to-date usage pattern for the LBB SDK.
+>
+> The instructions, patterns, and methods here are for reference and may be slightly out of sync with the latest SDK features.  
+> Always cross-check with `cmd/main.go` for the recommended workflow and error handling.
 
 # LBB SDK Go - Examples
 
@@ -11,8 +14,8 @@ This directory contains example code demonstrating how to use the LBB SDK Go for
 
 A comprehensive example showcasing all SDK features including:
 
-- ccount creation and management
-- Balance transfers
+- Account creation and management
+- Mnemonic generation
 - Schema deployment
 - Metadata minting
 - Certificate freezing/unfreezing
@@ -25,6 +28,14 @@ A comprehensive example showcasing all SDK features including:
 cd example
 go run main.go
 ```
+
+If this fails or does not act as expected, **switch to**:
+```bash
+cd cmd
+go run main.go
+```
+
+and check the code in `cmd/main.go` for the latest SDK usage.
 
 ## Prerequisites
 
@@ -40,7 +51,6 @@ For testing on fivenet (testnet), you'll need test tokens:
 2. Request faucet tokens from the SIX Protocol Discord [Faucet](https://discord.com/channels/940155834426613811/1352152627290443858) or Telegram
 3. Use the wallet address to receive test tokens
 
-
 ## Configuration
 
 ### Network Selection
@@ -48,11 +58,17 @@ For testing on fivenet (testnet), you'll need test tokens:
 **Testnet (Fivenet):**
 ```go
 client, err := client.NewClient(context.Background(), false)
+if err != nil {
+    panic(fmt.Sprintf("Failed to create client: %v", err))
+}
 ```
 
 **Mainnet (Sixnet):**
 ```go
 client, err := client.NewClient(context.Background(), true)
+if err != nil {
+    panic(fmt.Sprintf("Failed to create client: %v", err))
+}
 ```
 
 ### Custom Local Node
@@ -66,6 +82,9 @@ client, err := client.NewCustomClient(
     "http://localhost:8545",   // EVM JSON-RPC
     "testnet",                 // Chain ID type
 )
+if err != nil {
+    panic(fmt.Sprintf("Failed to create client: %v", err))
+}
 ```
 
 ## Understanding the Flow
@@ -74,12 +93,11 @@ client, err := client.NewCustomClient(
 
 1. **Create Wallet** → Generate mnemonic and derive addresses
 2. **Deploy Schema** → Define certificate structure on Cosmos layer
-3. **Deploy Contract** → Deploy NFT contract on EVM layer
-4. **Mint NFT** → Create NFT token on EVM layer
-5. **Create Metadata** → Attach certificate data on Cosmos layer
+3. **Mint Metadata** → Create certificate metadata on Cosmos layer
+4. **Deploy Contract** → Deploy NFT contract on EVM layer
+5. **Mint NFT** → Create NFT token on EVM layer
 6. **Transfer** _(optional)_ → Transfer ownership to recipient
-7. **Manage** _(optional)_ → Freeze/unfreeze, update metadata as needed
-
+7. **Manage** _(optional)_ → Freeze/unfreeze certificates as needed
 
 ### Dual-Layer Architecture
 
@@ -101,60 +119,30 @@ Both layers work together to provide a complete certificate management solution.
 
 ## Common Patterns
 
-### Method Usage
-For existing NFT Contract and Schema. After init client and account if using the same mnemonic of these owner (contract and schema)
-```go
-client, err := client.NewClient(ctx, false)
-...
-acc := account.NewAccount(client, "quickstart", mnemonic, "")
-meta := metadata.NewMetadataMsg(*acc, schemaName)
-evmClient := evm.NewEVMClient(*acc)
-
-createMetadata, err := meta.CreateCertificateMetadata(tokenIdStr)
-if err != nil {
-    // error handling
-}
-
-mintTx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
-if err != nil {
-    // error handling
-}
-
-```
-> **Note:** On the Cosmos layer, you can append multiple messages and broadcast them in one transaction using `meta.BroadcastTx(msg)`. However, for reliability, it's recommended to deploy the certificate schema and wait for transaction confirmation before creating certificate metadata (e.g., use `meta.DeployCertificateSchema()`, wait for confirmation, then call `meta.CreateCertificateMetadata()`).
-
-> **NOTE** We can CreateCertificateMetadata and MintCertificateNFT at the same time without invalid nonce or suquence of transaction, because both of them are on the separete layer
-
-### Error Handling
-
-Always check for errors and wait for transaction confirmation:
-
-```go
-res, err := meta.BroadcastTx(msg)
-if err != nil {
-    panic(fmt.Sprintf("Failed to broadcast: %v", err))
-}
-
-err = client.WaitForTransaction(res.TxHash)
-if err != nil {
-    panic(fmt.Sprintf("Transaction failed: %v", err))
-}
-```
+_(All example snippets below are for reference. See [`cmd/main.go`](../cmd/main.go) if unsure about compatibility or error handling.)_
 
 ### Account Creation
 
 ```go
 // Generate new mnemonic
 mnemonic, err := account.GenerateMnemonic()
-
-// Or use existing mnemonic
-mnemonic := "your twelve word mnemonic phrase here..."
-
-// Create account
-acc := account.NewAccount(client, "my-account", mnemonic, "")
-if acc == nil {
-    panic("Failed to create account")
+if err != nil {
+    panic(fmt.Sprintf("Failed to generate mnemonic: %v", err))
 }
+
+fmt.Println("Mnemonic generated")
+fmt.Println("*Important** write this mnemonic phrase in a safe place.")
+fmt.Printf("\nMnemonic: %s\n\n", mnemonic)
+
+// Create account from mnemonic
+acc, err := account.NewAccount(client, "alice", mnemonic, "")
+if err != nil {
+    panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
+}
+
+fmt.Printf("Account created\n")
+fmt.Printf("  EVM Address: %s\n", acc.GetEVMAddress().Hex())
+fmt.Printf("  Cosmos Address: %s\n", acc.GetCosmosAddress().String())
 ```
 
 ### Schema Naming
@@ -167,185 +155,382 @@ const schemaName = "myorg.lbbv01"
 
 Choose a unique organization name to avoid conflicts.
 
-### Balance Operations
+### Deploy Schema and Mint Metadata (Recommended Pattern)
 
-The SDK provides balance query and transfer operations:
-
-```go
-// Query balances
-balanceClient := balance.BalanceClient{Account: *acc}
-
-// Get all balances
-allBalances, err := balanceClient.GetBalance()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get balance: %v", err))
-}
-fmt.Printf("All balances: %v\n", allBalances)
-
-// Get Cosmos layer balance (usix)
-cosmosBalance, err := balanceClient.GetCosmosBalance()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get cosmos balance: %v", err))
-}
-fmt.Printf("Cosmos balance: %v\n", cosmosBalance)
-
-// Get EVM layer balance (asix)
-evmBalance, err := balanceClient.GetEVMBalance()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get EVM balance: %v", err))
-}
-fmt.Printf("EVM balance: %v\n", evmBalance)
-
-// Transfer tokens
-balanceMsg := balance.NewBalanceMsg(*acc)
-amount := sdk.NewCoins(sdk.NewInt64Coin("usix", 1000000))
-res, err := balanceMsg.SendBalance("6x1recipient_address_here", amount)
-if err != nil {
-    panic(fmt.Sprintf("Failed to send balance: %v", err))
-}
-fmt.Printf("Transfer tx: %s\n", res.TxHash)
-```
-
-### Metadata Query Operations
-
-Query certificate schemas and metadata:
+The recommended pattern is to build multiple messages and broadcast them together:
 
 ```go
-metaClient := metadata.NewMetadataClient(*acc)
-
-// Get NFT schema details
-schema, err := metaClient.GetNFTSchema(schemaName)
+meta, err := metadata.NewMetadataMsg(*acc, schemaName)
 if err != nil {
-    panic(fmt.Sprintf("Failed to get schema: %v", err))
+    fmt.Printf("NewMetadataMsg error: %v\n", err)
+    return
 }
-fmt.Printf("Schema: %v\n", schema)
 
-// Get certificate metadata
-nftData, err := metaClient.GetNFTMetadata(schemaName, "1")
+// Build deploy schema message
+msgDeploySchema, err := meta.BuildDeployMsg()
 if err != nil {
-    panic(fmt.Sprintf("Failed to get metadata: %v", err))
+    fmt.Printf("Failed to build deploy message: %v\n", err)
+    return
 }
-fmt.Printf("NFT Data: %v\n", nftData)
 
-// Check if address is executor
-isExecutor, err := metaClient.GetIsExecutor(schemaName, acc.GetCosmosAddress().String())
+// Build mint metadata message
+msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
 if err != nil {
-    panic(fmt.Sprintf("Failed to check executor: %v", err))
+    fmt.Printf("Failed to build create metadata: %v\n", err)
+    return
 }
-fmt.Printf("Is executor: %v\n", isExecutor)
 
-// Get all executors for schema
-executors, err := metaClient.GetExecutor(schemaName)
+// Combine messages and broadcast
+var msgs []sdk.Msg
+msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
+
+res, err := meta.BroadcastTxAndWait(msgs...)
 if err != nil {
-    panic(fmt.Sprintf("Failed to get executors: %v", err))
+    fmt.Printf("Broadcast Tx error: %v\n", err)
+    return
 }
-fmt.Printf("Executors: %v\n", executors)
+
+fmt.Printf("Schema deployed and metadata minted\n")
+fmt.Printf("  Schema Code: %s\n", schemaName)
+fmt.Printf("  Transaction: %s\n", res.TxHash)
 ```
+
+> **Note:** `BroadcastTxAndWait()` will automatically wait for transaction confirmation. For more control, use `BroadcastTx()` followed by `client.WaitForTransaction()`.
 
 ### Certificate Freeze/Unfreeze
 
 Manage certificate state on the Cosmos layer:
 
 ```go
-meta := metadata.NewMetadataMsg(*acc, schemaName)
+meta, err := metadata.NewMetadataMsg(*acc, schemaName)
+if err != nil {
+    fmt.Printf("NewMetadataMsg error: %v\n", err)
+    return
+}
 
 // Freeze a certificate
 res, err := meta.FreezeCertificate("1")
 if err != nil {
-    panic(fmt.Sprintf("Failed to freeze certificate: %v", err))
+    fmt.Printf("Freeze error: %v\n", err)
+    return
 }
-fmt.Printf("Certificate frozen, tx: %s\n", res.TxHash)
 
 // Wait for confirmation
 err = client.WaitForTransaction(res.TxHash)
 if err != nil {
-    panic(fmt.Sprintf("Transaction failed: %v", err))
+    fmt.Printf("Error waiting for freeze: %v\n", err)
+    return
 }
+
+fmt.Printf("Certificate frozen, tx: %s\n", res.TxHash)
 
 // Unfreeze a certificate
 res, err = meta.UnfreezeCertificate("1")
 if err != nil {
-    panic(fmt.Sprintf("Failed to unfreeze certificate: %v", err))
+    fmt.Printf("Unfreeze error: %v\n", err)
+    return
 }
+
 fmt.Printf("Certificate unfrozen, tx: %s\n", res.TxHash)
 ```
 
-### EVM Query Operations
-
-Query NFT ownership and contract details:
+### Deploy EVM NFT Contract
 
 ```go
 evmClient := evm.NewEVMClient(*acc)
 
-// Get token owner
-owner := evmClient.TokenOwner(contractAddress, tokenId)
-fmt.Printf("Token owner: %s\n", owner.Hex())
-
-// Get current gas price
-gasPrice, err := evmClient.GasPrice()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get gas price: %v", err))
-}
-fmt.Printf("Gas price: %v\n", gasPrice)
-
-// Get chain ID
-chainID, err := evmClient.ChainID()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get chain ID: %v", err))
-}
-fmt.Printf("Chain ID: %v\n", chainID)
-
-// Get nonce
-nonce, err := evmClient.GetNonce()
-if err != nil {
-    panic(fmt.Sprintf("Failed to get nonce: %v", err))
-}
-fmt.Printf("Nonce: %d\n", nonce)
-
-// Check transaction receipt
-err = evmClient.CheckTransactionReceipt(tx.Hash())
-if err != nil {
-    panic(fmt.Sprintf("Transaction check failed: %v", err))
-}
-```
-
-### Auto-Increment Token ID Contract
-
-Deploy and use a contract with auto-incrementing token IDs:
-
-```go
-// Deploy auto-increment contract
-contractAddress, tx, err := evmClient.DeployCertIDIncrementContract(
-    "AutoCert",
-    "ACERT",
+// Deploy certificate contract
+contractAddress, tx, err := evmClient.DeployCertificateContract(
+    "MyCertificate",
+    "CERT",
     schemaName,
 )
 if err != nil {
-    panic(fmt.Sprintf("Failed to deploy contract: %v", err))
+    fmt.Printf("EVM deploy error: %v\n", err)
+    return
+}
+
+fmt.Printf("Deploy Tx: %s\n", tx.Hash().Hex())
+fmt.Printf("Deploy at Nonce: %v\n", tx.Nonce())
+
+// Wait for deployment transaction to be mined
+_, err = client.WaitForEVMTransaction(tx.Hash())
+if err != nil {
+    fmt.Printf("Error waiting for deployment: %v\n", err)
+    return
+}
+
+fmt.Printf("Contract deployed at: %s\n", contractAddress.Hex())
+```
+
+### Mint NFT
+
+```go
+evmClient := evm.NewEVMClient(*acc)
+
+tokenId := uint64(1)
+tx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
+if err != nil {
+    fmt.Printf("EVM mint error: %v\n", err)
+    return
+}
+
+fmt.Printf("Mint Tx: %s\n", tx.Hash().Hex())
+fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
+
+// Wait for mint transaction
+_, err = client.WaitForEVMTransaction(tx.Hash())
+if err != nil {
+    fmt.Printf("Error waiting for mint: %v\n", err)
+    return
+}
+
+fmt.Printf("NFT minted with token ID: %d\n", tokenId)
+```
+
+### Transfer NFT
+
+```go
+import "github.com/ethereum/go-ethereum/common"
+
+evmClient := evm.NewEVMClient(*acc)
+
+recipientEVM := "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
+tokenId := uint64(1)
+
+tx, err := evmClient.TransferCertificateNFT(
+    contractAddress,
+    common.HexToAddress(recipientEVM),
+    tokenId,
+)
+if err != nil {
+    fmt.Printf("EVM transfer error: %v\n", err)
+    return
+}
+
+fmt.Printf("Transfer Tx: %s\n", tx.Hash().Hex())
+fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
+
+// Wait for transfer transaction
+_, err = client.WaitForEVMTransaction(tx.Hash())
+if err != nil {
+    fmt.Printf("Error waiting for transfer: %v\n", err)
+    return
+}
+
+fmt.Printf("NFT transferred to: %s\n", recipientEVM)
+```
+
+### Verify NFT Ownership
+
+```go
+evmClient := evm.NewEVMClient(*acc)
+
+currentOwner := evmClient.TokenOwner(contractAddress, tokenId)
+fmt.Printf("Current owner: %s\n", currentOwner.Hex())
+```
+
+### Balance Operations
+
+Send tokens on the Cosmos layer:
+
+```go
+import (
+    "cosmossdk.io/math"
+    sdk "github.com/cosmos/cosmos-sdk/types"
+    "github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
+)
+
+balanceMsg, err := balance.NewBalanceMsg(*acc)
+if err != nil {
+    fmt.Printf("NewBalanceMsg error: %v\n", err)
+    return
+}
+
+sendAmount := sdk.Coin{
+    Amount: math.NewInt(1000000),
+    Denom:  "usix",
+}
+
+res, err := balanceMsg.SendBalanceAndWait(
+    "6x1recipient_address_here",
+    sdk.NewCoins(sendAmount),
+)
+if err != nil {
+    fmt.Printf("Send error: %v\n", err)
+    return
+}
+
+fmt.Printf("Transfer tx: %s\n", res.TxHash)
+```
+
+### Complete Flow Example
+
+Here's the typical flow from `example/main.go`:
+
+```go
+const (
+    contractName   = "MyCertificate"
+    contractSymbol = "CERT"
+    schemaName     = "myorg.lbbv01"
+    recipientEVM   = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // 1. Initialize client
+    client, err := client.NewClient(ctx, false)
+    if err != nil {
+        panic(fmt.Sprintf("Failed to create client: %v", err))
+    }
+    
+    // 2. Generate mnemonic and create account
+    mnemonic, err := account.GenerateMnemonic()
+    if err != nil {
+        panic(fmt.Sprintf("Failed to generate mnemonic: %v", err))
+    }
+    
+    acc, err := account.NewAccount(client, "alice", mnemonic, "")
+    if err != nil {
+        panic("Failed to create account")
+    }
+    
+    // 3. Deploy schema and mint metadata
+    meta, err := metadata.NewMetadataMsg(*acc, schemaName)
+    if err != nil {
+        panic(fmt.Sprintf("NewMetadataMsg error: %v", err))
+    }
+    
+    msgDeploySchema, err := meta.BuildDeployMsg()
+    if err != nil {
+        panic(fmt.Sprintf("Failed to build deploy message: %v", err))
+    }
+    
+    msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
+    if err != nil {
+        panic(fmt.Sprintf("Failed to build metadata: %v", err))
+    }
+    
+    var msgs []sdk.Msg
+    msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
+    
+    res, err := meta.BroadcastTxAndWait(msgs...)
+    if err != nil {
+        panic(fmt.Sprintf("Broadcast error: %v", err))
+    }
+    
+    // 4. Deploy EVM contract
+    evmClient := evm.NewEVMClient(*acc)
+    contractAddress, tx, err := evmClient.DeployCertificateContract(
+        contractName,
+        contractSymbol,
+        schemaName,
+    )
+    if err != nil {
+        panic(fmt.Sprintf("Deploy error: %v", err))
+    }
+    
+    _, err = client.WaitForEVMTransaction(tx.Hash())
+    if err != nil {
+        panic(fmt.Sprintf("Wait error: %v", err))
+    }
+    
+    // 5. Mint NFT
+    tokenId := uint64(1)
+    tx, err = evmClient.MintCertificateNFT(contractAddress, tokenId)
+    if err != nil {
+        panic(fmt.Sprintf("Mint error: %v", err))
+    }
+    
+    _, err = client.WaitForEVMTransaction(tx.Hash())
+    if err != nil {
+        panic(fmt.Sprintf("Wait error: %v", err))
+    }
+    
+    // 6. Freeze/Unfreeze certificate
+    res, err = meta.FreezeCertificate("1")
+    if err != nil {
+        panic(fmt.Sprintf("Freeze error: %v", err))
+    }
+    
+    err = client.WaitForTransaction(res.TxHash)
+    if err != nil {
+        panic(fmt.Sprintf("Wait error: %v", err))
+    }
+    
+    res, err = meta.UnfreezeCertificate("1")
+    if err != nil {
+        panic(fmt.Sprintf("Unfreeze error: %v", err))
+    }
+    
+    // 7. Transfer NFT
+    tx, err = evmClient.TransferCertificateNFT(
+        contractAddress,
+        common.HexToAddress(recipientEVM),
+        tokenId,
+    )
+    if err != nil {
+        panic(fmt.Sprintf("Transfer error: %v", err))
+    }
+    
+    _, err = client.WaitForEVMTransaction(tx.Hash())
+    if err != nil {
+        panic(fmt.Sprintf("Wait error: %v", err))
+    }
+    
+    // 8. Verify ownership
+    currentOwner := evmClient.TokenOwner(contractAddress, tokenId)
+    fmt.Printf("Current owner: %s\n", currentOwner.Hex())
+}
+```
+
+## Key Differences Between Layers
+
+### Cosmos Layer Operations
+- Use `meta.BroadcastTx()` or `meta.BroadcastTxAndWait()`
+- Wait with `client.WaitForTransaction(res.TxHash)`
+- Handle multiple messages in one transaction
+- Operations: Deploy schema, mint metadata, freeze/unfreeze
+
+### EVM Layer Operations
+- Direct function calls return `*types.Transaction`
+- Wait with `client.WaitForEVMTransaction(tx.Hash())`
+- Each transaction is separate
+- Operations: Deploy contract, mint NFT, transfer NFT
+
+> **Important:** Cosmos and EVM layers operate independently. You can execute operations on both layers simultaneously without nonce/sequence conflicts.
+
+## Error Handling Best Practices
+
+Always check errors and wait for confirmation:
+
+```go
+// For Cosmos transactions
+res, err := meta.BroadcastTx(msg)
+if err != nil {
+    fmt.Printf("Broadcast error: %v\n", err)
+    return
+}
+
+err = client.WaitForTransaction(res.TxHash)
+if err != nil {
+    fmt.Printf("Transaction failed: %v\n", err)
+    return
+}
+
+// For EVM transactions
+tx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
+if err != nil {
+    fmt.Printf("Mint error: %v\n", err)
+    return
 }
 
 _, err = client.WaitForEVMTransaction(tx.Hash())
 if err != nil {
-    panic(fmt.Sprintf("Error waiting for contract deployment: %v", err))
+    fmt.Printf("Transaction failed: %v\n", err)
+    return
 }
-
-// Mint with auto-increment (no need to specify token ID)
-mintTx, err := evmClient.MintCertificateNFTAutoIncrement(contractAddress)
-if err != nil {
-    panic(fmt.Sprintf("Failed to mint NFT: %v", err))
-}
-
-_, err = client.WaitForEVMTransaction(mintTx.Hash())
-if err != nil {
-    panic(fmt.Sprintf("Error waiting for mint: %v", err))
-}
-
-// Get the current token ID counter
-currentTokenId, err := evmClient.GetCurrentTokenID(contractAddress)
-if err != nil {
-    panic(fmt.Sprintf("Failed to get current token ID: %v", err))
-}
-fmt.Printf("Current token ID: %d\n", currentTokenId)
 ```
 
 ## Modifying the Examples
@@ -354,8 +539,8 @@ fmt.Printf("Current token ID: %d\n", currentTokenId)
 
 Edit the client initialization:
 ```go
-// Change true to false for mainnet
-client, err := client.NewClient(context.Background(), true)
+// false = testnet (fivenet), true = mainnet (sixnet)
+client, err := client.NewClient(context.Background(), false)
 ```
 
 ### Use Your Own Mnemonic
@@ -363,7 +548,7 @@ client, err := client.NewClient(context.Background(), true)
 Replace the test mnemonic with your own:
 ```go
 const myMnemonic = "your twelve word mnemonic phrase..."
-acc := account.NewAccount(client, "my-wallet", myMnemonic, "")
+acc, err := account.NewAccount(client, "my-wallet", myMnemonic, "")
 ```
 
 ### Customize Certificate Details
@@ -399,8 +584,24 @@ const (
 - Use a different organization name or schema code
 - Check existing schemas before deploying
 
+### Invalid nonce errors
+- Ensure you wait for each EVM transaction to complete
+- Don't send multiple EVM transactions without waiting
+- Use `client.WaitForEVMTransaction()` between transactions
+
 ## Next Steps
 
 1. Review the [main USAGE.md](../USAGE.md) for detailed documentation
 2. Explore the SDK source code to understand available methods
 3. Build your own application using these examples as a template
+4. Check the test files for additional usage patterns
+
+## Reference Files
+
+- **Latest Example:** [`cmd/main.go`](../cmd/main.go) - Most up-to-date patterns
+- **This Example:** [`example/main.go`](main.go) - User-friendly walkthrough
+- **Documentation:** [`../USAGE.md`](../USAGE.md) - Comprehensive API reference
+
+---
+
+**Always refer to [`cmd/main.go`](../cmd/main.go) for the latest, most robust example and error handling patterns.**
