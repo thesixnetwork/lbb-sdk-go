@@ -12,15 +12,15 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	enccodec "github.com/evmos/evmos/v20/encoding/codec"
 	"github.com/evmos/evmos/v20/ethereum/eip712"
 	evmtypes "github.com/evmos/evmos/v20/x/evm/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	//cosmos modules
-   banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	// cosmos modules
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-   // SixProtocol modules
+	// SixProtocol modules
 	nftadminmoduletypes "github.com/thesixnetwork/six-protocol/v4/x/nftadmin/types"
 	nftmngrmoduletypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 	nftoraclemoduletypes "github.com/thesixnetwork/six-protocol/v4/x/nftoracle/types"
@@ -39,7 +39,7 @@ func MakeConfig() sdktestutil.TestEncodingConfig {
 			Bech32Prefix: sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
 		},
 		CustomGetSigners: map[protoreflect.FullName]signing.GetSignersFunc{
-			evmtypes.MsgEthereumTxCustomGetSigner.MsgType:     evmtypes.MsgEthereumTxCustomGetSigner.Fn,
+			evmtypes.MsgEthereumTxCustomGetSigner.MsgType: evmtypes.MsgEthereumTxCustomGetSigner.Fn,
 		},
 	}
 
@@ -50,7 +50,6 @@ func MakeConfig() sdktestutil.TestEncodingConfig {
 	codec := amino.NewProtoCodec(interfaceRegistry)
 	enccodec.RegisterLegacyAminoCodec(cdc)
 	enccodec.RegisterInterfaces(interfaceRegistry)
-
 
 	// Register standard Cosmos modules
 	authtypes.RegisterInterfaces(interfaceRegistry)

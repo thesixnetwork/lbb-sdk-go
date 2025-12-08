@@ -9,6 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bip39 "github.com/cosmos/go-bip39"
+
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
 )
 
@@ -162,7 +163,7 @@ func (a *Account) String() string {
 
 // NewAccountFromPrivateKey creates a new Account instance from an existing private key
 // This is useful when you want to create an account without using a mnemonic
-// NOTE:: Use this function for creating isolate EVM client ONLY. And prevent inital packages of cosmos such as metadata and bank
+// NOTE:: Use this function for creating isolate EVM client ONLY. And prevent initial packages of cosmos such as metadata and bank
 func NewAccountFromPrivateKey(ctx client.ClientI, accountName string, privateKey *ecdsa.PrivateKey) (*Account, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("client cannot be nil")

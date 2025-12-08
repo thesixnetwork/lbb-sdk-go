@@ -1,8 +1,9 @@
 package metadata
 
 import (
-	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata/assets"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
+
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata/assets"
 )
 
 func GetSchemaByteFromJSON() ([]byte, error) {

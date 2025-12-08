@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+
 	"github.com/thesixnetwork/lbb-sdk-go/config"
 )
 
@@ -161,7 +162,7 @@ func (c *Client) GetClientCTX() client.Context {
 
 func (c *Client) SetClientCTX(client client.Context) client.Context {
 	c.cosmosClientCTX = client
-	return  c.cosmosClientCTX
+	return c.cosmosClientCTX
 }
 
 // GetKeyring returns the keyring from the Cosmos client context

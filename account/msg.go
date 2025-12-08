@@ -47,7 +47,6 @@ func NewAccountMsg(acc AccountI) (*AccountMsg, error) {
 		return nil, fmt.Errorf("account client cannot be nil")
 	}
 
-
 	ctx := account.client.GetClientCTX().
 		WithFromName(account.GetAccountName()).
 		WithFrom(account.GetAccountName()).

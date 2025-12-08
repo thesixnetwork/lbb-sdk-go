@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 

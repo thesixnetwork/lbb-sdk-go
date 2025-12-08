@@ -1,10 +1,10 @@
 package metadata
 
 type CertificateInfo struct {
-	Status string
+	Status       string
 	GoldStandard string
-	Weight string
-	CertNumber string
-	CustomerID  string
-	IssueDate  string
+	Weight       string
+	CertNumber   string
+	CustomerID   string
+	IssueDate    string
 }

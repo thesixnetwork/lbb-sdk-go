@@ -3,8 +3,10 @@ package balance
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 )
+
 type BalanceMsg struct {
 	Balance
 	accountMsg *account.AccountMsg

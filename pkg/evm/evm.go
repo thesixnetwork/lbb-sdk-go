@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 )
@@ -37,7 +38,7 @@ func (e *EVMClient) GasPrice() (*big.Int, error) {
 func (e *EVMClient) GasLimit(callMsg ethereum.CallMsg) (uint64, error) {
 	goCtx := e.GetClient().GetContext()
 	ethClient := e.GetClient().GetETHClient()
-	
+
 	gasLimit, err := ethClient.EstimateGas(goCtx, callMsg)
 	if err != nil {
 		fmt.Printf("ERROR EstimateGas : %v \n", err)
@@ -124,7 +125,7 @@ func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
 func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName string, args interface{}) (tx *types.Transaction, err error) {
 	goCtx := e.GetClient().GetContext()
 	ethClient := e.GetClient().GetETHClient()
-		
+
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err

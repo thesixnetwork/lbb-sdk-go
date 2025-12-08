@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 )
 
@@ -53,4 +54,3 @@ func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) c
 
 	return addressOutpu
 }
-

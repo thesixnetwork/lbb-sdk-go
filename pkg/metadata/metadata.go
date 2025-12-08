@@ -2,8 +2,9 @@ package metadata
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/thesixnetwork/lbb-sdk-go/account"
 	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
+
+	"github.com/thesixnetwork/lbb-sdk-go/account"
 )
 
 type Metadata struct {

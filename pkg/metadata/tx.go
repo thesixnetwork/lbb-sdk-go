@@ -7,9 +7,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata/assets"
-	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 )
 
 type MetadataMsg struct {

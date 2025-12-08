@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 	incrementassets "github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets/increment"
 )
@@ -25,9 +26,9 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 	ethClient := e.GetClient().GetETHClient()
 
 	var baseURI string
-	if e.GetClient().GetChainID() == "sixnet"{
+	if e.GetClient().GetChainID() == "sixnet" {
 		baseURI = mainnetBaseURIPath + nftSchemaCode
-	}else{
+	} else {
 		baseURI = testnetBaseURIPath + nftSchemaCode
 	}
 
@@ -70,7 +71,7 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 	auth.GasLimit = gasLimit
 	auth.GasPrice = gasPrice
 
-	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN),ethClient, construcArg...)
+	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), ethClient, construcArg...)
 	if err != nil {
 		return common.Address{}, &types.Transaction{}, err
 	}
@@ -154,7 +155,6 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 		return &types.Transaction{}, err
 	}
 
-
 	// Pack the function call
 	data, err := contractABI.Pack("safeTransferFrom", e.GetEVMAddress(), destAddress, big.NewInt(int64(tokenID)))
 	if err != nil {
@@ -204,9 +204,9 @@ func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchem
 	ethClient := e.GetClient().GetETHClient()
 
 	var baseURI string
-	if e.GetClient().GetChainID() == "sixnet"{
+	if e.GetClient().GetChainID() == "sixnet" {
 		baseURI = mainnetBaseURIPath + nftSchemaCode
-	}else{
+	} else {
 		baseURI = testnetBaseURIPath + nftSchemaCode
 	}
 
@@ -259,7 +259,7 @@ func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchem
 
 func (e *EVMClient) MintCertNFT(contractAddress common.Address) (tx *types.Transaction, err error) {
 	goCtx := e.GetClient().GetContext()
-	ethClient := e.GetClient().GetETHClient()	
+	ethClient := e.GetClient().GetETHClient()
 	stringABI, err := incrementassets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -281,7 +281,6 @@ func (e *EVMClient) MintCertNFT(contractAddress common.Address) (tx *types.Trans
 		To:   &contractAddress,
 		Data: data,
 	})
-
 	if err != nil {
 		return &types.Transaction{}, err
 	}

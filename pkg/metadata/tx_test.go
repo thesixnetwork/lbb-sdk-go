@@ -3,9 +3,10 @@ package metadata_test
 import (
 	"testing"
 
+	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/metadata"
-	nftmngrtypes "github.com/thesixnetwork/six-protocol/v4/x/nftmngr/types"
 )
 
 func TestMetadataMsg_BuildMintMetadataWithInfoMsg(t *testing.T) {

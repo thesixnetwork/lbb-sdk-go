@@ -27,18 +27,18 @@ type NFTFilterer struct {
 }
 
 type NFTSession struct {
-	Contract     *NFT           // Generic contract binding to set the session for
+	Contract     *NFT              // Generic contract binding to set the session for
 	CallOpts     bind.CallOpts     // Call options to use throughout this session
 	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
 type NFTCallerSession struct {
-	Contract *NFTCaller // Generic contract caller binding to set the session for
+	Contract *NFTCaller    // Generic contract caller binding to set the session for
 	CallOpts bind.CallOpts // Call options to use throughout this session
 }
 
 type NFTTransactorSession struct {
-	Contract     *NFTTransactor // Generic contract transactor binding to set the session for
+	Contract     *NFTTransactor    // Generic contract transactor binding to set the session for
 	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
@@ -105,6 +105,5 @@ func bindNFT(address common.Address, caller bind.ContractCaller, transactor bind
 func (_NFT *NFTRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _NFT.Contract.NFTCaller.contract.Call(opts, result, method, params...)
 }
-
 
 // TODO:: Create Contract Method according to ABI

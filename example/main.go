@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm"
