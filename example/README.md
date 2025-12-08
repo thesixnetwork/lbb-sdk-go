@@ -1,3 +1,6 @@
+> [!IMPORTANT]  
+> root/cmd/main.go is the uptodate one please take a look at that if this emample failed
+
 # LBB SDK Go - Examples
 
 This directory contains example code demonstrating how to use the LBB SDK Go for certificate management on the SIX Protocol.

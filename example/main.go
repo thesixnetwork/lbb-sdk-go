@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-
+	
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/thesixnetwork/lbb-sdk-go/account"
@@ -22,6 +23,17 @@ const (
 	recipientCosmos = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
 	recipientEVM    = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
 )
+
+func init() {
+	mnemonic, _ := account.GenerateMnemonic()
+	fmt.Println("-----------------------------------------------------")
+	fmt.Println()
+	fmt.Println()
+	fmt.Printf("THIS IS JUST DEMO HOW TO GEN MNEMONIC \n: %+v \n", mnemonic)
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("-----------------------------------------------------")
+}
 
 func main() {
 	fmt.Println("=== LBB SDK Go - Quick Start Example ===\n")
@@ -54,9 +66,9 @@ func main() {
 
 	// Step 3: Create account from mnemonic
 	fmt.Println("Step 3: Creating account...")
-	acc := account.NewAccount(client, "quickstart", mnemonic, "")
-	if acc == nil {
-		panic("Failed to create account")
+	acc, err := account.NewAccount(client, "alice", account.TestMnemonic, "")
+	if err != nil {
+		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
 	}
 
 	fmt.Printf("Account created\n")
@@ -65,42 +77,51 @@ func main() {
 
 	// Step 4: Deploy Certificate Schema
 	fmt.Println("Step 4: Deploying certificate schema...")
-	meta := metadata.NewMetadataMsg(*acc, schemaName)
+
+	meta, err := metadata.NewMetadataMsg(*acc, schemaName)
+	if err != nil {
+		fmt.Printf("NewMetadataMsg error: %v\n", err)
+		return
+	}
+
 	msgDeploySchema, err := meta.BuildDeployMsg()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to build deploy message: %v", err))
+		fmt.Printf("Failed to build deploy message: %v\n", err)
+		return
 	}
 
-	res, err := meta.BroadcastTx(msgDeploySchema)
+	msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
 	if err != nil {
-		panic(fmt.Sprintf("Failed to deploy schema: %v", err))
+		fmt.Printf("Failed to build create metadata: %v\n", err)
+		return
 	}
 
-	err = client.WaitForTransaction(res.TxHash)
+	var msgs []sdk.Msg
+
+	msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
+
+	res, err := meta.BroadcastTxAndWait(msgs...)
 	if err != nil {
-		panic(fmt.Sprintf("Error waiting for schema deployment: %v", err))
+		fmt.Printf("Broadcast Tx error: %v\n", err)
 	}
 
 	fmt.Printf("Schema deployed\n")
 	fmt.Printf("  Schema Code: %s\n", schemaName)
 	fmt.Printf("  Transaction: %s\n\n", res.TxHash)
-
 	// Step 5: Deploy EVM NFT Contract
 	fmt.Println("Step 5: Deploying EVM NFT contract...")
 	evmClient := evm.NewEVMClient(*acc)
-
-	contractAddress, tx, err := evmClient.DeployCertificateContract(
-		contractName,
-		contractSymbol,
-		schemaName,
-	)
+	contractAddress, tx, err := evmClient.DeployCertificateContract(contractName, contractSymbol, schemaName)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to deploy contract: %v", err))
+		fmt.Printf("EVM deploy certificate erro: %v\n", err)
+		return
 	}
 
+	// Wait for deployment transaction to be mined
 	_, err = client.WaitForEVMTransaction(tx.Hash())
 	if err != nil {
-		panic(fmt.Sprintf("Error waiting for contract deployment: %v", err))
+		fmt.Printf("Error waiting for deployment: %v\n", err)
+		return
 	}
 
 	fmt.Printf("Contract deployed\n")
@@ -110,63 +131,67 @@ func main() {
 	// Step 6: Mint Certificate NFT
 	fmt.Println("Step 6: Minting certificate NFT...")
 	tokenId := uint64(1)
-
-	mintTx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
+	tx, err = evmClient.MintCertificateNFT(contractAddress, tokenId)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to mint NFT: %v", err))
+		fmt.Printf("EVM error: %v\n", err)
+		return
+	}
+	fmt.Printf("Mint Tx: %+v \n", tx.Hash())
+	fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
+
+	_, err = client.WaitForEVMTransaction(tx.Hash())
+	if err != nil {
+		fmt.Printf("Error waiting for deployment: %v\n", err)
+		return
 	}
 
-	_, err = client.WaitForEVMTransaction(mintTx.Hash())
-	if err != nil {
-		panic(fmt.Sprintf("Error waiting for mint: %v", err))
-	}
 
 	fmt.Printf("NFT minted\n")
 	fmt.Printf("  Token ID: %d\n", tokenId)
-	fmt.Printf("  Transaction: %s\n\n", mintTx.Hash().Hex())
+	fmt.Printf("  Transaction: %s\n\n", tx.Hash().Hex())
+	
+	// Step 7: Tryto change state of metadata
 
-	// Step 7: Create Certificate Metadata
-	fmt.Println("Step 7: Creating certificate metadata...")
-	tokenIdStr := "1"
-
-	msgCreateMetadata, err := meta.BuildMintMetadataMsg(tokenIdStr)
+	res, err = meta.FreezeCertificate("1")
 	if err != nil {
-		panic(fmt.Sprintf("Failed to build mint metadata message: %v", err))
-	}
-
-	res, err = meta.BroadcastTx(msgCreateMetadata)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create metadata: %v", err))
+		fmt.Printf("Freeze error: %v\n", err)
+		return
 	}
 
 	err = client.WaitForTransaction(res.TxHash)
 	if err != nil {
-		panic(fmt.Sprintf("Error waiting for metadata creation: %v", err))
+		fmt.Printf("Error waiting for deployment: %v\n", err)
+		return
 	}
 
-	fmt.Printf("Metadata created\n")
-	fmt.Printf("  Token ID: %s\n", tokenIdStr)
-	fmt.Printf("  Transaction: %s\n\n", res.TxHash)
+	res, err = meta.UnfreezeCertificate("1")
+	if err != nil {
+		fmt.Printf("Unfreeze error: %v\n", err)
+		return
+	}
+	fmt.Printf("Unfreeze response: %v\n", res)
 
 	// Step 8: Transfer NFT
 	fmt.Println("Step 8: Transferring NFT to recipient...")
-	transferTx, err := evmClient.TransferCertificateNFT(
-		contractAddress,
-		common.HexToAddress(recipientEVM),
-		tokenId,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to transfer NFT: %v", err))
-	}
 
-	_, err = client.WaitForEVMTransaction(transferTx.Hash())
+
+	tx, err = evmClient.TransferCertificateNFT(contractAddress, common.HexToAddress(recipientEVM), tokenId)
 	if err != nil {
-		panic(fmt.Sprintf("Error waiting for transfer: %v", err))
+		fmt.Printf("EVM error: %v\n", err)
+		return
+	}
+	fmt.Printf("Transfer Tx: %+v \n", tx.Hash())
+	fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
+
+	_, err = client.WaitForEVMTransaction(tx.Hash())
+	if err != nil {
+		fmt.Printf("Error waiting for transfer: %v\n", err)
+		return
 	}
 
 	fmt.Printf("NFT transferred\n")
 	fmt.Printf("  To: %s\n", recipientEVM)
-	fmt.Printf("  Transaction: %s\n\n", transferTx.Hash().Hex())
+	fmt.Printf("  Transaction: %s\n\n", tx.Hash().Hex())
 
 	// Step 9: Verify ownership
 	fmt.Println("Step 9: Verifying new owner...")

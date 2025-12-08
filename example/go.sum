@@ -833,8 +833,8 @@ github.com/thesixnetwork/evmos/v20 v20.0.0-six h1:ESvOiA6P9//8oCV6r0JDamPaZXIZLF
 github.com/thesixnetwork/evmos/v20 v20.0.0-six/go.mod h1:xvt+GKp0qlRfNTYbg2QcEhE7tW/2QNblJzHzavXvFaY=
 github.com/thesixnetwork/go-ethereum v1.13.6-0.20250607133945-ba2bad3ed2da h1:67d3GAjlFgAISSaWKepF3TZCVShpApUNtkSGHrSjpRk=
 github.com/thesixnetwork/go-ethereum v1.13.6-0.20250607133945-ba2bad3ed2da/go.mod h1:0NZ9oFK+iUgZtgUs5ro+re3VG/446p0upk2SOeuonDw=
-github.com/thesixnetwork/lbb-sdk-go v0.1.0-alpha h1:1mCRM2Dvkhw2wb6wrYLjIYviklVS+avis7va5YMU5G4=
-github.com/thesixnetwork/lbb-sdk-go v0.1.0-alpha/go.mod h1:V5W6t2U/pXgU4w4R5+UecHEWR7nXPP7FDtfqshVo9V4=
+github.com/thesixnetwork/lbb-sdk-go v0.1.0 h1:F8yhxInoY+ZCHaHCK3dEENhAHOkiYA/3iFtrIu00XZ0=
+github.com/thesixnetwork/lbb-sdk-go v0.1.0/go.mod h1:V5W6t2U/pXgU4w4R5+UecHEWR7nXPP7FDtfqshVo9V4=
 github.com/thesixnetwork/six-protocol/v4 v4.0.1 h1:U6cEAnx+OZutyJ4TsizzzUkcx2FYzzFI236/fBGSj0A=
 github.com/thesixnetwork/six-protocol/v4 v4.0.1/go.mod h1:E1XY2uHfc2LqKYdB56tx78HF428zfdPElEav306xb3g=
 github.com/tidwall/btree v1.7.0 h1:L1fkJH/AuEh5zBnnBbmTwQ5Lt+bRJ5A8EWecslvo9iI=
