@@ -109,7 +109,94 @@ func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.Ms
 	return msg, nil
 }
 
+func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info CertificateInfo) (msg *nftmngrtypes.MsgCreateMetadata, err error) {
+	var metadataInput nftmngrtypes.NftData
+
+	metadataBytes, err := assets.GetJSONMetadata()
+	if err != nil {
+		return msg, err
+	}
+	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
+	if err != nil {
+		return msg, err
+	}
+
+	metadataInput.NftSchemaCode = m.nftSchemaCode
+	metadataInput.OwnerAddressType = nftmngrtypes.OwnerAddressType_INTERNAL_ADDRESS
+	metadataInput.TokenId = tokenID
+	metadataInput.TokenOwner = m.GetCosmosAddress().String()
+
+	for _, attr := range metadataInput.OnchainAttributes {
+		switch attr.Name {
+		case "status":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.Status,
+				},
+			}
+		case "gold_standard":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.GoldStandard,
+				},
+			}
+		case "cert_number":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.CertNumber,
+				},
+			}
+		case "customer_id":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.CustomerID,
+				},
+			}
+		case "issue_date":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.IssueDate,
+				},
+			}
+		}
+	}
+
+	metadataBytes, err = m.Codec.(*codec.ProtoCodec).MarshalJSON(&metadataInput)
+	if err != nil {
+		return msg, err
+	}
+
+	base64Metadata := base64.StdEncoding.EncodeToString(metadataBytes)
+
+	msg = &nftmngrtypes.MsgCreateMetadata{
+		Creator:       m.GetCosmosAddress().String(),
+		NftSchemaCode: m.nftSchemaCode,
+		TokenId:       tokenID,
+		Base64NFTData: base64Metadata,
+	}
+
+	return msg, nil
+}
+
 func (m *MetadataMsg) CreateCertificateMetadata(tokenID string) (res *sdk.TxResponse, err error) {
+	msg, err := m.BuildMintMetadataMsg(tokenID)
+	if err != nil {
+		return res, err
+	}
+
+	res, err = m.BroadcastTx(msg)
+	if err != nil {
+		return res, err
+	}
+
+	if res.Code != 0 {
+		return res, fmt.Errorf("BroadcastTx error with reason: %v", res.Logs)
+	}
+
+	return res, nil
+}
+
+func (m *MetadataMsg) CreateCertificateMetadataWithInfo(tokenID string, info CertificateInfo) (res *sdk.TxResponse, err error) {
 	msg, err := m.BuildMintMetadataMsg(tokenID)
 	if err != nil {
 		return res, err
