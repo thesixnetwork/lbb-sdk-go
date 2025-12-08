@@ -15,6 +15,7 @@ const (
 	GasPrice      = "1.25usix"
 	GasAdjustment = 1.5
 )
+
 type AccountMsgI interface {
 	BroadcastTx(msgs ...sdk.Msg) (*sdk.TxResponse, error)
 	GenerateOrBroadcastTxWithFactory(msgs ...sdk.Msg) error
@@ -46,13 +47,13 @@ func NewAccountMsg(acc AccountI) (*AccountMsg, error) {
 		return nil, fmt.Errorf("account client cannot be nil")
 	}
 
-	ctx := client.GetClientCTX()
 
-	// Update client context with account information
-	ctx = ctx.
+	ctx := account.client.GetClientCTX().
 		WithFromName(account.GetAccountName()).
 		WithFrom(account.GetAccountName()).
 		WithFromAddress(account.GetCosmosAddress())
+
+	ctx = client.SetClientCTX(ctx)
 
 	// Create transaction factory with account settings
 	factory := clienttx.Factory{}.

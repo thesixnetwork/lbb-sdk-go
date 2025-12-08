@@ -40,6 +40,7 @@ const (
 // ClientI defines the interface for blockchain client operations
 type ClientI interface {
 	GetClientCTX() client.Context
+	SetClientCTX(client.Context) client.Context
 	GetKeyring() keyring.Keyring
 	GetETHClient() *ethclient.Client
 	GetRPCClient() string
@@ -156,6 +157,11 @@ func (c *Client) GetChainID() string {
 // GetClientCTX returns the Cosmos client context
 func (c *Client) GetClientCTX() client.Context {
 	return c.cosmosClientCTX
+}
+
+func (c *Client) SetClientCTX(client client.Context) client.Context {
+	c.cosmosClientCTX = client
+	return  c.cosmosClientCTX
 }
 
 // GetKeyring returns the keyring from the Cosmos client context
