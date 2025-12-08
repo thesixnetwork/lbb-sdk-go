@@ -13,15 +13,28 @@ import (
 )
 
 type MetadataMsg struct {
-	account.AccountMsg
+	Metadata
+	accountMsg *account.AccountMsg
 	nftSchemaCode string
 }
 
-func NewMetadataMsg(a account.Account, nftSchemaCode string) *MetadataMsg {
-	return &MetadataMsg{
-		AccountMsg:    *account.NewAccountMsg(a),
-		nftSchemaCode: nftSchemaCode,
+func NewMetadataMsg(a account.Account, nftSchemaCode string) (*MetadataMsg, error) {
+	accountMsg, err := account.NewAccountMsg(&a)
+	if err != nil {
+		return nil, err
 	}
+
+	return &MetadataMsg{
+		Metadata: Metadata{
+			account: a,
+		},
+		accountMsg:    accountMsg,
+		nftSchemaCode: nftSchemaCode,
+	}, nil
+}
+
+func (m *MetadataMsg) BroadcastTx(msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return m.accountMsg.BroadcastTx(msgs...)
 }
 
 func (m *MetadataMsg) BuildDeployMsg() (msg *nftmngrtypes.MsgCreateNFTSchema, err error) {
@@ -31,18 +44,18 @@ func (m *MetadataMsg) BuildDeployMsg() (msg *nftmngrtypes.MsgCreateNFTSchema, er
 		return msg, err
 	}
 
-	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(schemaInputBytes, &schemaInput)
+	err = m.GetCodec().(*codec.ProtoCodec).UnmarshalJSON(schemaInputBytes, &schemaInput)
 	if err != nil {
 		return msg, err
 	}
 
 	schemaName := strings.ReplaceAll(m.nftSchemaCode, ".", "_")
 	schemaInput.Code = m.nftSchemaCode
-	schemaInput.Owner = m.GetCosmosAddress().String()
+	schemaInput.Owner = m.account.GetCosmosAddress().String()
 	schemaInput.Name = schemaName
 	schemaInput.Description = schemaName
 
-	schemaBytes, err := m.Codec.(*codec.ProtoCodec).MarshalJSON(&schemaInput)
+	schemaBytes, err := m.GetCodec().(*codec.ProtoCodec).MarshalJSON(&schemaInput)
 	if err != nil {
 		return msg, err
 	}
@@ -50,7 +63,7 @@ func (m *MetadataMsg) BuildDeployMsg() (msg *nftmngrtypes.MsgCreateNFTSchema, er
 	base64Schema := base64.StdEncoding.EncodeToString(schemaBytes)
 
 	msg = &nftmngrtypes.MsgCreateNFTSchema{
-		Creator:         m.GetCosmosAddress().String(),
+		Creator:         m.account.GetCosmosAddress().String(),
 		NftSchemaBase64: base64Schema,
 	}
 
@@ -82,7 +95,7 @@ func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.Ms
 	if err != nil {
 		return msg, err
 	}
-	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
+	err = m.GetCodec().(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
 	if err != nil {
 		return msg, err
 	}
@@ -90,9 +103,9 @@ func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.Ms
 	metadataInput.NftSchemaCode = m.nftSchemaCode
 	metadataInput.OwnerAddressType = nftmngrtypes.OwnerAddressType_INTERNAL_ADDRESS
 	metadataInput.TokenId = tokenID
-	metadataInput.TokenOwner = m.GetCosmosAddress().String()
+	metadataInput.TokenOwner = m.account.GetCosmosAddress().String()
 
-	metadataBytes, err = m.Codec.(*codec.ProtoCodec).MarshalJSON(&metadataInput)
+	metadataBytes, err = m.GetCodec().(*codec.ProtoCodec).MarshalJSON(&metadataInput)
 	if err != nil {
 		return msg, err
 	}
@@ -100,7 +113,7 @@ func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.Ms
 	base64Metadata := base64.StdEncoding.EncodeToString(metadataBytes)
 
 	msg = &nftmngrtypes.MsgCreateMetadata{
-		Creator:       m.GetCosmosAddress().String(),
+		Creator:       m.account.GetCosmosAddress().String(),
 		NftSchemaCode: m.nftSchemaCode,
 		TokenId:       tokenID,
 		Base64NFTData: base64Metadata,
@@ -116,7 +129,7 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 	if err != nil {
 		return msg, err
 	}
-	err = m.Codec.(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
+	err = m.GetCodec().(*codec.ProtoCodec).UnmarshalJSON(metadataBytes, &metadataInput)
 	if err != nil {
 		return msg, err
 	}
@@ -124,7 +137,7 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 	metadataInput.NftSchemaCode = m.nftSchemaCode
 	metadataInput.OwnerAddressType = nftmngrtypes.OwnerAddressType_INTERNAL_ADDRESS
 	metadataInput.TokenId = tokenID
-	metadataInput.TokenOwner = m.GetCosmosAddress().String()
+	metadataInput.TokenOwner = m.account.GetCosmosAddress().String()
 
 	for _, attr := range metadataInput.OnchainAttributes {
 		switch attr.Name {
@@ -161,7 +174,7 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 		}
 	}
 
-	metadataBytes, err = m.Codec.(*codec.ProtoCodec).MarshalJSON(&metadataInput)
+	metadataBytes, err = m.GetCodec().(*codec.ProtoCodec).MarshalJSON(&metadataInput)
 	if err != nil {
 		return msg, err
 	}
@@ -169,7 +182,7 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 	base64Metadata := base64.StdEncoding.EncodeToString(metadataBytes)
 
 	msg = &nftmngrtypes.MsgCreateMetadata{
-		Creator:       m.GetCosmosAddress().String(),
+		Creator:       m.account.GetCosmosAddress().String(),
 		NftSchemaCode: m.nftSchemaCode,
 		TokenId:       tokenID,
 		Base64NFTData: base64Metadata,
@@ -216,7 +229,7 @@ func (m *MetadataMsg) CreateCertificateMetadataWithInfo(tokenID string, info Cer
 
 func (m MetadataMsg) FreezeCertificate(tokenID string) (res *sdk.TxResponse, err error) {
 	msg := &nftmngrtypes.MsgPerformActionByAdmin{
-		Creator:       m.GetCosmosAddress().String(),
+		Creator:       m.account.GetCosmosAddress().String(),
 		NftSchemaCode: m.nftSchemaCode,
 		TokenId:       tokenID,
 		Action:        "freeze_cert",
@@ -228,7 +241,7 @@ func (m MetadataMsg) FreezeCertificate(tokenID string) (res *sdk.TxResponse, err
 
 func (m MetadataMsg) UnfreezeCertificate(tokenID string) (res *sdk.TxResponse, err error) {
 	msg := &nftmngrtypes.MsgPerformActionByAdmin{
-		Creator:       m.GetCosmosAddress().String(),
+		Creator:       m.account.GetCosmosAddress().String(),
 		NftSchemaCode: m.nftSchemaCode,
 		TokenId:       tokenID,
 		Action:        "unfreeze_cert",

@@ -12,6 +12,9 @@ import (
 )
 
 func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) common.Address {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
 	var currentOwner common.Address
 
 	stringABI, err := assets.GetContractABIString()
@@ -31,7 +34,7 @@ func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) c
 		return currentOwner
 	}
 
-	result, err := e.ETHClient.CallContract(e.GetContext(), ethereum.CallMsg{
+	result, err := ethClient.CallContract(goCtx, ethereum.CallMsg{
 		To:   &contractAddress,
 		Data: data,
 	}, nil)

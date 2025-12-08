@@ -1,0 +1,2 @@
+1. Change from NewAccount (ctx client.ClientI, ...) due to "Accept Interfaces, Return Structs"
+2. Struct design must not deep embedding. Use composition instead of embedding, which means that a struct should not contain another struct as a field. Instead, it should contain a pointer to the other struct. This is because embedding can lead to ambiguity and confusion when accessing fields and methods. For example in alpha version of lbb-sdk-go/account/account.go, the Account struct contains a pointer to the Client struct instead of embedding it directly.

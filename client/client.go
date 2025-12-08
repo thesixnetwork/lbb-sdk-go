@@ -13,11 +13,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/thesixnetwork/lbb-sdk-go/config"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/thesixnetwork/lbb-sdk-go/config"
 )
 
 const (
@@ -27,243 +26,263 @@ const (
 	TestnetEVMRPC  = "https://rpc-evm.fivenet.sixprotocol.net"
 	TestnetChainID = "fivenet"
 
-	// MINNET DEFAULT
+	// MAINNET DEFAULT
 	MainnetRPC     = "https://sixnet-rpc.sixprotocol.net/"
 	MainnetAPI     = "https://sixnet-api.sixprotocol.net"
 	MainnetEVMRPC  = "https://sixnet-rpc.sixprotocol.net"
 	MainnetChainID = "sixnet"
+
+	// Transaction timeout settings
+	transactionPollInterval = 1 * time.Second
+	transactionTimeout      = 20 * time.Second
 )
 
-type Client struct {
-	context.Context
-	ETHClient         *ethclient.Client
-	CosmosClientCTX   client.Context
-	Codec             codec.Codec
-	InterfaceRegistry codectypes.InterfaceRegistry
-	LegacyAmino       *codec.LegacyAmino
-	RPCClient         string
-	EVMRPCCleint      string
-	APIClient         string
-	ChainID           string
-}
-
+// ClientI defines the interface for blockchain client operations
 type ClientI interface {
 	GetClientCTX() client.Context
 	GetKeyring() keyring.Keyring
 	GetETHClient() *ethclient.Client
+	GetRPCClient() string
+	GetAPIClient() string
+	GetEVMRPCClient() string
+	GetChainID() string
+	GetContext() context.Context
+	WaitForTransaction(txhash string) error
+	WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, error)
+}
+
+type Client struct {
+	ctx               context.Context
+	ethClient         *ethclient.Client
+	cosmosClientCTX   client.Context
+	codec             codec.Codec
+	interfaceRegistry codectypes.InterfaceRegistry
+	legacyAmino       *codec.LegacyAmino
+	rpcClient         string
+	evmRPCClient      string
+	apiClient         string
+	chainID           string
 }
 
 var _ ClientI = (*Client)(nil)
 
-// NewClient creates a new Client Context with properly initialized codecs
-func NewClient(ctx context.Context, mainnet bool) (Client, error) {
-	var rpcURL, apiURL, evmrpcURL, chainID string
+// NewClient creates a new Client instance with default mainnet or testnet configuration
+func NewClient(ctx context.Context, mainnet bool) (*Client, error) {
+	var rpcURL, apiURL, evmRPCURL, chainID string
+
 	if mainnet {
 		rpcURL = MainnetRPC
 		apiURL = MainnetAPI
-		evmrpcURL = MainnetEVMRPC
+		evmRPCURL = MainnetEVMRPC
 		chainID = MainnetChainID
 	} else {
 		rpcURL = TestnetRPC
 		apiURL = TestnetAPI
-		evmrpcURL = TestnetEVMRPC
+		evmRPCURL = TestnetEVMRPC
 		chainID = TestnetChainID
 	}
 
-	encodingConfig := config.MakeConfig()
-	cdc := encodingConfig.Codec
-	LegacyAmino := encodingConfig.Amino
-	interfaceRegistry := encodingConfig.InterfaceRegistry
-	txConfig := authtx.NewTxConfig(encodingConfig.Codec, authtx.DefaultSignModes)
-	kr := keyring.NewInMemory(encodingConfig.Codec)
-	rpcclient, err := NewClientFromNode(rpcURL)
-	if err != nil {
-		return Client{}, nil
-	}
-	cosmosClientCTX := client.Context{}.
-		WithCodec(cdc).
-		WithInterfaceRegistry(interfaceRegistry).
-		WithTxConfig(txConfig).
-		WithLegacyAmino(LegacyAmino).
-		WithAccountRetriever(authtypes.AccountRetriever{}).
-		WithBroadcastMode(flags.BroadcastAsync).
-		WithKeyring(kr).
-		WithNodeURI(rpcURL).
-		WithClient(rpcclient).
-		WithChainID(chainID)
-
-	evmClient, err := ethclient.Dial(evmrpcURL)
-	if err != nil {
-		return Client{}, nil
-	}
-
-	return Client{
-		Context:           ctx,
-		CosmosClientCTX:   cosmosClientCTX,
-		ETHClient:         evmClient,
-		Codec:             encodingConfig.Codec,
-		InterfaceRegistry: encodingConfig.InterfaceRegistry,
-		LegacyAmino:       encodingConfig.Amino,
-		RPCClient:         rpcURL,
-		EVMRPCCleint:      evmrpcURL,
-		APIClient:         apiURL,
-		ChainID:           chainID,
-	}, nil
+	return NewCustomClient(ctx, rpcURL, apiURL, evmRPCURL, chainID)
 }
 
-// NewCustomClient creates a new Client Context with custom property to initialized codecs
-func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string) (Client, error) {
-	encodingConfig := config.MakeConfig()
-	cdc := encodingConfig.Codec
-	LegacyAmino := encodingConfig.Amino
-	interfaceRegistry := encodingConfig.InterfaceRegistry
-	txConfig := authtx.NewTxConfig(encodingConfig.Codec, authtx.DefaultSignModes)
-	kr := keyring.NewInMemory(encodingConfig.Codec)
-	rpcclient, err := NewClientFromNode(rpcURL)
-	if err != nil {
-		return Client{}, nil
+// NewCustomClient creates a new Client instance with custom configuration
+func NewCustomClient(ctx context.Context, rpcURL, apiURL, evmRPC, chainID string) (*Client, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
+
+	encodingConfig := config.MakeConfig()
+	kr := keyring.NewInMemory(encodingConfig.Codec)
+	rpcClient, err := newClientFromNode(rpcURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RPC client for %s: %w", rpcURL, err)
+	}
+	txConfig := authtx.NewTxConfig(encodingConfig.Codec, authtx.DefaultSignModes)
 	cosmosClientCTX := client.Context{}.
-		WithCodec(cdc).
-		WithInterfaceRegistry(interfaceRegistry).
+		WithCodec(encodingConfig.Codec).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(txConfig).
-		WithLegacyAmino(LegacyAmino).
+		WithLegacyAmino(encodingConfig.Amino).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastSync).
 		WithKeyring(kr).
 		WithNodeURI(rpcURL).
-		WithClient(rpcclient).
+		WithClient(rpcClient).
 		WithChainID(chainID)
-
 	evmClient, err := ethclient.Dial(evmRPC)
 	if err != nil {
-		return Client{}, nil
+		return nil, fmt.Errorf("failed to create EVM client for %s: %w", evmRPC, err)
 	}
-	return Client{
-		Context:           ctx,
-		ETHClient:         evmClient,
-		CosmosClientCTX:   cosmosClientCTX,
-		Codec:             encodingConfig.Codec,
-		InterfaceRegistry: encodingConfig.InterfaceRegistry,
-		LegacyAmino:       encodingConfig.Amino,
-		RPCClient:         rpcURL,
-		EVMRPCCleint:      evmRPC,
-		APIClient:         apiURL,
-		ChainID:           chainID,
+
+	return &Client{
+		ctx:               ctx,
+		ethClient:         evmClient,
+		cosmosClientCTX:   cosmosClientCTX,
+		codec:             encodingConfig.Codec,
+		interfaceRegistry: encodingConfig.InterfaceRegistry,
+		legacyAmino:       encodingConfig.Amino,
+		rpcClient:         rpcURL,
+		evmRPCClient:      evmRPC,
+		apiClient:         apiURL,
+		chainID:           chainID,
 	}, nil
 }
 
+// GetRPCClient returns the RPC client URL
 func (c *Client) GetRPCClient() string {
-	return c.RPCClient
+	return c.rpcClient
 }
 
+// GetETHClient returns the Ethereum client instance
 func (c *Client) GetETHClient() *ethclient.Client {
-	return c.ETHClient
+	return c.ethClient
 }
 
+// GetAPIClient returns the API client URL
 func (c *Client) GetAPIClient() string {
-	return c.APIClient
+	return c.apiClient
 }
 
+// GetEVMRPCClient returns the EVM RPC client URL
 func (c *Client) GetEVMRPCClient() string {
-	return c.EVMRPCCleint
+	return c.evmRPCClient
 }
 
+// GetChainID returns the chain ID
 func (c *Client) GetChainID() string {
-	return c.ChainID
+	return c.chainID
 }
 
+// GetClientCTX returns the Cosmos client context
 func (c *Client) GetClientCTX() client.Context {
-	return c.CosmosClientCTX
+	return c.cosmosClientCTX
 }
 
+// GetKeyring returns the keyring from the Cosmos client context
 func (c *Client) GetKeyring() keyring.Keyring {
-	return c.CosmosClientCTX.Keyring
+	return c.cosmosClientCTX.Keyring
 }
 
+// GetContext returns the context
 func (c *Client) GetContext() context.Context {
-	return c.Context
+	return c.ctx
 }
 
+// GetCodec returns the codec
+func (c *Client) GetCodec() codec.Codec {
+	return c.codec
+}
 
-// WaitForTransaction add this line to remove annoying lint for the love of god
-/*
-* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
-* So time out must be more than that, We will use 3 blocks at most
-*/
+// GetInterfaceRegistry returns the interface registry
+func (c *Client) GetInterfaceRegistry() codectypes.InterfaceRegistry {
+	return c.interfaceRegistry
+}
 
-func (c *Client) WaitForTransaction(txhash string) error {
-	fmt.Printf("Waiting for transaction %s to be mined...\n", txhash)
+// GetLegacyAmino returns the legacy amino codec
+func (c *Client) GetLegacyAmino() *codec.LegacyAmino {
+	return c.legacyAmino
+}
 
-	ticker := time.NewTicker(1 * time.Second)
+// WaitForTransaction waits for a Cosmos transaction to be mined and returns an error if it fails
+// The timeout is set to 20 seconds (approximately 3 blocks at 6.3s block time)
+func (c *Client) WaitForTransaction(txHash string) error {
+	if txHash == "" {
+		return fmt.Errorf("transaction hash cannot be empty")
+	}
+
+	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash)
+
+	ticker := time.NewTicker(transactionPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(20 * time.Second)
+	timeout := time.After(transactionTimeout)
 
 	for {
 		select {
 		case <-timeout:
-			return fmt.Errorf("timeout waiting for transaction to be mined")
+			return fmt.Errorf("timeout waiting for transaction %s to be mined", txHash)
 		case <-ticker.C:
-			output, err := authtx.QueryTx(c.CosmosClientCTX, txhash)
+			output, err := authtx.QueryTx(c.cosmosClientCTX, txHash)
 			if err != nil {
-				return err
+				// Transaction not yet available, continue waiting
+				continue
 			}
+
 			if output.Empty() {
-				return fmt.Errorf("no transaction found with hash %s", txhash)
+				return fmt.Errorf("no transaction found with hash %s", txHash)
 			}
-			if output.Code > 0 {
-				return fmt.Errorf("transaction failed: %v", output.Logs)
+
+			if output.Code != 0 {
+				return fmt.Errorf("transaction %s failed with code %d: %s", txHash, output.Code, output.RawLog)
 			}
+
+			fmt.Printf("Transaction %s successfully mined in block %d\n", txHash, output.Height)
 			return nil
 		}
-		// continue
 	}
 }
 
-// WaitForEVMTransaction add this line to remove annoying lint for the love of god
-/*
-* NOTE:: ON Production both blocktime on mainnet and testnet are the same, which is 6.3 at maximux
-* So I time out must be more than that so I will use 3 blocks at most
-*/
-func (e *Client) WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, error) {
-	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash.Hex())
+// WaitForEVMTransaction waits for an EVM transaction to be mined and returns the receipt
+// The timeout is set to 20 seconds (approximately 3 blocks at 6.3s block time)
+func (c *Client) WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, error) {
+	if txHash == (common.Hash{}) {
+		return nil, fmt.Errorf("transaction hash cannot be empty")
+	}
 
-	ticker := time.NewTicker(1 * time.Second)
+	fmt.Printf("Waiting for EVM transaction %s to be mined...\n", txHash.Hex())
+
+	ticker := time.NewTicker(transactionPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(20 * time.Second)
+	timeout := time.After(transactionTimeout)
 
 	for {
 		select {
 		case <-timeout:
-			return nil, fmt.Errorf("timeout waiting for transaction to be mined")
+			return nil, fmt.Errorf("timeout waiting for transaction %s to be mined", txHash.Hex())
 		case <-ticker.C:
-			receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
-			if err == nil {
-				if receipt.Status == 0 {
-					return receipt, fmt.Errorf("transaction failed")
-				}
-				fmt.Printf("Transaction mined in block %d\n", receipt.BlockNumber.Uint64())
-				return receipt, nil
+			receipt, err := c.ethClient.TransactionReceipt(c.ctx, txHash)
+			if err != nil {
+				// Transaction not yet mined, continue waiting
+				continue
 			}
-			// Transaction not yet mined, continue waiting
+
+			if receipt.Status == 0 {
+				return receipt, fmt.Errorf("transaction %s failed", txHash.Hex())
+			}
+
+			fmt.Printf("Transaction %s successfully mined in block %d\n", txHash.Hex(), receipt.BlockNumber.Uint64())
+			return receipt, nil
 		}
 	}
 }
 
-func (c Client) WithFrom(from string) Client {
-	c.CosmosClientCTX.From = from
-	return c
+// WithFrom returns a new Client with the specified from address
+func (c *Client) WithFrom(from string) *Client {
+	newClient := *c
+	newClient.cosmosClientCTX = newClient.cosmosClientCTX.WithFrom(from)
+	return &newClient
 }
 
-func (c Client) WithFromName(fromName string) Client {
-	c.CosmosClientCTX.FromName = fromName
-	return c
+// WithFromName returns a new Client with the specified from name
+func (c *Client) WithFromName(fromName string) *Client {
+	newClient := *c
+	newClient.cosmosClientCTX = newClient.cosmosClientCTX.WithFromName(fromName)
+	return &newClient
 }
 
-// NewClientFromNode sets up Client implementation that communicates with a CometBFT node over
-// JSON RPC and WebSockets
-func NewClientFromNode(nodeURI string) (*rpchttp.HTTP, error) {
+// WithBroadcastMode returns a new Client with the specified broadcast mode
+func (c *Client) WithBroadcastMode(mode string) *Client {
+	newClient := *c
+	newClient.cosmosClientCTX = newClient.cosmosClientCTX.WithBroadcastMode(mode)
+	return &newClient
+}
+
+// newClientFromNode creates an RPC client that communicates with a CometBFT node
+// over JSON RPC and WebSockets
+func newClientFromNode(nodeURI string) (*rpchttp.HTTP, error) {
+	if nodeURI == "" {
+		return nil, fmt.Errorf("node URI cannot be empty")
+	}
 	return rpchttp.New(nodeURI, "/websocket")
 }

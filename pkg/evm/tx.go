@@ -20,8 +20,12 @@ const (
 )
 
 func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCode string) (common.Address, *types.Transaction, error) {
+	goCtx := e.GetClient().GetContext()
+	_ = goCtx
+	ethClient := e.GetClient().GetETHClient()
+
 	var baseURI string
-	if e.CosmosClientCTX.ChainID == "sixnet"{
+	if e.GetClient().GetChainID() == "sixnet"{
 		baseURI = mainnetBaseURIPath + nftSchemaCode
 	}else{
 		baseURI = testnetBaseURIPath + nftSchemaCode
@@ -56,7 +60,7 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 
 	construcArg = append(construcArg, contractName, symbol, baseURI, e.GetEVMAddress())
 
-	auth := e.GetTransactionOps()
+	auth := e.GetTransactOpts()
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(0) // in wei
 	gasLimit, err := e.EstimateDeployGas(contractABI, common.FromHex(stringBIN), construcArg...)
@@ -66,7 +70,7 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 	auth.GasLimit = gasLimit
 	auth.GasPrice = gasPrice
 
-	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), e.ETHClient, construcArg...)
+	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN),ethClient, construcArg...)
 	if err != nil {
 		return common.Address{}, &types.Transaction{}, err
 	}
@@ -75,6 +79,9 @@ func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCod
 }
 
 func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID uint64) (tx *types.Transaction, err error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -125,7 +132,7 @@ func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID u
 		return &types.Transaction{}, err
 	}
 
-	err = e.ETHClient.SendTransaction(e.GetContext(), signedTx)
+	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
 		return &types.Transaction{}, err
 	}
@@ -134,6 +141,9 @@ func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID u
 }
 
 func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destAddress common.Address, tokenID uint64) (tx *types.Transaction, err error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -182,7 +192,7 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 		return &types.Transaction{}, err
 	}
 
-	err = e.ETHClient.SendTransaction(e.GetContext(), signedTx)
+	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
 		return &types.Transaction{}, err
 	}
@@ -191,8 +201,10 @@ func (e *EVMClient) TransferCertificateNFT(contractAddress common.Address, destA
 }
 
 func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchemaCode string) (common.Address, *types.Transaction, error) {
+	ethClient := e.GetClient().GetETHClient()
+
 	var baseURI string
-	if e.CosmosClientCTX.ChainID == "sixnet"{
+	if e.GetClient().GetChainID() == "sixnet"{
 		baseURI = mainnetBaseURIPath + nftSchemaCode
 	}else{
 		baseURI = testnetBaseURIPath + nftSchemaCode
@@ -227,7 +239,7 @@ func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchem
 
 	construcArg = append(construcArg, contractName, symbol, baseURI, e.GetEVMAddress())
 
-	auth := e.GetTransactionOps()
+	auth := e.GetTransactOpts()
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(0) // in wei
 	gasLimit, err := e.EstimateDeployGas(contractABI, common.FromHex(stringBIN), construcArg...)
@@ -237,7 +249,7 @@ func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchem
 	auth.GasLimit = gasLimit
 	auth.GasPrice = gasPrice
 
-	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), e.ETHClient, construcArg...)
+	address, tx, _, err := bind.DeployContract(auth, contractABI, common.FromHex(stringBIN), ethClient, construcArg...)
 	if err != nil {
 		return common.Address{}, &types.Transaction{}, err
 	}
@@ -246,6 +258,8 @@ func (e *EVMClient) DeployCertIDIncrementContract(contractName, symbol, nftSchem
 }
 
 func (e *EVMClient) MintCertNFT(contractAddress common.Address) (tx *types.Transaction, err error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()	
 	stringABI, err := incrementassets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -294,7 +308,7 @@ func (e *EVMClient) MintCertNFT(contractAddress common.Address) (tx *types.Trans
 		return &types.Transaction{}, err
 	}
 
-	err = e.ETHClient.SendTransaction(e.GetContext(), signedTx)
+	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
 		return &types.Transaction{}, err
 	}

@@ -24,7 +24,10 @@ func NewEVMClient(a account.Account) *EVMClient {
 }
 
 func (e *EVMClient) GasPrice() (*big.Int, error) {
-	gasPrice, err := e.ETHClient.SuggestGasPrice(e.GetContext())
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	gasPrice, err := ethClient.SuggestGasPrice(goCtx)
 	if err != nil {
 		return gasPrice, err
 	}
@@ -32,7 +35,10 @@ func (e *EVMClient) GasPrice() (*big.Int, error) {
 }
 
 func (e *EVMClient) GasLimit(callMsg ethereum.CallMsg) (uint64, error) {
-	gasLimit, err := e.ETHClient.EstimateGas(e.GetContext(), callMsg)
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+	
+	gasLimit, err := ethClient.EstimateGas(goCtx, callMsg)
 	if err != nil {
 		fmt.Printf("ERROR EstimateGas : %v \n", err)
 		return gasLimit, err
@@ -42,6 +48,9 @@ func (e *EVMClient) GasLimit(callMsg ethereum.CallMsg) (uint64, error) {
 }
 
 func (e *EVMClient) EstimateDeployGas(contractABI abi.ABI, bytecode []byte, constructorArgs ...interface{}) (uint64, error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
 	var data []byte
 	if len(constructorArgs) > 0 {
 		packedArgs, err := contractABI.Pack("", constructorArgs...)
@@ -54,7 +63,7 @@ func (e *EVMClient) EstimateDeployGas(contractABI abi.ABI, bytecode []byte, cons
 	}
 
 	// Estimate gas for deployment
-	gasLimit, err := e.ETHClient.EstimateGas(e.GetContext(), ethereum.CallMsg{
+	gasLimit, err := ethClient.EstimateGas(goCtx, ethereum.CallMsg{
 		From: e.GetEVMAddress(),
 		Data: data,
 	})
@@ -68,7 +77,10 @@ func (e *EVMClient) EstimateDeployGas(contractABI abi.ABI, bytecode []byte, cons
 }
 
 func (e *EVMClient) ChainID() (*big.Int, error) {
-	chainID, err := e.ETHClient.NetworkID(e.GetContext())
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	chainID, err := ethClient.NetworkID(goCtx)
 	if err != nil {
 		return chainID, err
 	}
@@ -76,7 +88,10 @@ func (e *EVMClient) ChainID() (*big.Int, error) {
 }
 
 func (e *EVMClient) GetNonce() (nonce uint64, err error) {
-	nonce, err = e.ETHClient.PendingNonceAt(e.GetContext(), e.GetEVMAddress())
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	nonce, err = ethClient.PendingNonceAt(goCtx, e.GetEVMAddress())
 	if err != nil {
 		return nonce, err
 	}
@@ -85,7 +100,10 @@ func (e *EVMClient) GetNonce() (nonce uint64, err error) {
 }
 
 func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
-	receipt, err := e.ETHClient.TransactionReceipt(e.GetContext(), txHash)
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	receipt, err := ethClient.TransactionReceipt(goCtx, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to get receipt: %w", err)
 	}
@@ -104,6 +122,9 @@ func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
 }
 
 func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName string, args interface{}) (tx *types.Transaction, err error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+		
 	stringABI, err := assets.GetContractABIString()
 	if err != nil {
 		return &types.Transaction{}, err
@@ -151,7 +172,7 @@ func (e *EVMClient) DynamicABI(contractAddress common.Address, functionName stri
 		return &types.Transaction{}, err
 	}
 
-	err = e.ETHClient.SendTransaction(e.GetContext(), signedTx)
+	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
 		return &types.Transaction{}, err
 	}

@@ -19,8 +19,7 @@ import (
 func createTestAccountService() *Account {
 	// Create a simple context without full SDK initialization to avoid codec issues
 	return &Account{
-		Client: client.Client{
-			Context: context.Background(),
+		client: &client.Client{	
 		},
 	}
 }

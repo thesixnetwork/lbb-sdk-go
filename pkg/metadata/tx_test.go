@@ -24,7 +24,13 @@ func TestMetadataMsg_BuildMintMetadataWithInfoMsg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := metadata.NewMetadataMsg(tt.a, tt.nftSchemaCode)
+			m, err := metadata.NewMetadataMsg(tt.a, tt.nftSchemaCode)
+			if err != nil {
+				if !tt.wantErr {
+					t.Errorf("NewMetadataMsg failed: %v", err)
+				}
+				return
+			}
 			got, gotErr := m.BuildMintMetadataWithInfoMsg(tt.tokenID, tt.info)
 			if gotErr != nil {
 				if !tt.wantErr {
