@@ -14,7 +14,7 @@ import (
 
 type MetadataMsg struct {
 	Metadata
-	accountMsg *account.AccountMsg
+	accountMsg    *account.AccountMsg
 	nftSchemaCode string
 }
 
@@ -35,6 +35,10 @@ func NewMetadataMsg(a account.Account, nftSchemaCode string) (*MetadataMsg, erro
 
 func (m *MetadataMsg) BroadcastTx(msgs ...sdk.Msg) (*sdk.TxResponse, error) {
 	return m.accountMsg.BroadcastTx(msgs...)
+}
+
+func (b *MetadataMsg) BroadcastTxAndWait(msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return b.accountMsg.BroadcastTxAndWait(msgs...)
 }
 
 func (m *MetadataMsg) BuildDeployMsg() (msg *nftmngrtypes.MsgCreateNFTSchema, err error) {

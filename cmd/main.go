@@ -16,19 +16,19 @@ import (
 )
 
 const (
-	BobAddress    = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
-	BobEVMAddres = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
-	nftSchemaName = "sixnetwork.lbbv01" // {ORGNAME}.{Schemacode}
-	contractName = "MyNFTCert"
+	BobAddress     = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
+	BobEVMAddres   = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
+	nftSchemaName  = "sixnetwork.lbbv01" // {ORGNAME}.{Schemacode}
+	contractName   = "MyNFTCert"
 	contractSymbol = "Cert"
 )
 
-func init(){
+func init() {
 	mnemonic, _ := account.GenerateMnemonic()
 	fmt.Println("-----------------------------------------------------")
 	fmt.Println()
 	fmt.Println()
-	fmt.Printf("THIS IS JUST DEMO HOW TO GEN MNEMONIC \n: %+v \n",mnemonic)
+	fmt.Printf("THIS IS JUST DEMO HOW TO GEN MNEMONIC \n: %+v \n", mnemonic)
 	fmt.Println()
 	fmt.Println()
 	fmt.Println("-----------------------------------------------------")
@@ -55,34 +55,36 @@ func main() {
 				false,
 			)
 	*/
-	a := account.NewAccount(client, "alice", account.TestMnemonic, "")
-	if a == nil {
+	a, err := account.NewAccount(client, "alice", account.TestMnemonic, "")
+	if err != nil {
 		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
 	}
 
-	balanceClient := balance.NewBalanceMsg(*a)
+	balanceMsg, err := balance.NewBalanceMsg(*a)
+	if err != nil {
+		fmt.Printf("NewBalanceMsg error: %v\n", err)
+		return
+	}
 
 	sendAmount := sdk.Coin{
 		Amount: math.NewInt(20),
 		Denom:  "usix",
 	}
 
-	res, err := balanceClient.SendBalance(BobAddress, sdk.NewCoins(sendAmount))
+	res, err := balanceMsg.SendBalanceAndWait(BobAddress, sdk.NewCoins(sendAmount))
 	if err != nil {
 		fmt.Printf("Send error: %v\n", err)
 		return
 	}
 
-	// Wait for SendBalance transaction to be confirmed
-	err = client.WaitForTransaction(res.TxHash)
+	meta, err := metadata.NewMetadataMsg(*a, nftSchemaName)
 	if err != nil {
-		fmt.Printf("Error waiting for SendBalance: %v\n", err)
+		fmt.Printf("NewMetadataMsg error: %v\n", err)
 		return
 	}
-	meta := metadata.NewMetadataMsg(*a, nftSchemaName)
 
 	msgDeploySchema, err := meta.BuildDeployMsg()
-		if err != nil {
+	if err != nil {
 		fmt.Printf("Deploy error: %v\n", err)
 		return
 	}
@@ -95,16 +97,11 @@ func main() {
 
 	var msgs []sdk.Msg
 
-	msgs = append(msgs,msgDeploySchema,msgCreateMetadata)
+	msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
 
-	res, err = meta.BroadcastTx(msgs...)
+	res, err = meta.BroadcastTxAndWait(msgs...)
 	if err != nil {
 		fmt.Printf("Mint error: %v\n", err)
-	}
-	err = client.WaitForTransaction(res.TxHash)
-	if err != nil {
-		fmt.Printf("Error waiting for deployment: %v\n", err)
-		return
 	}
 
 	res, err = meta.FreezeCertificate("1")
@@ -144,7 +141,7 @@ func main() {
 		return
 	}
 
-	tx, err = evm.MintCertificateNFT(address,1)
+	tx, err = evm.MintCertificateNFT(address, 1)
 	if err != nil {
 		fmt.Printf("EVM error: %v\n", err)
 		return

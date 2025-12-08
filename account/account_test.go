@@ -1,7 +1,6 @@
 package account
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"os"
 	"strings"
@@ -11,18 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	client "github.com/thesixnetwork/lbb-sdk-go/client"
 )
-
-// Helper function to create a test account service
-// This creates a minimal account service that doesn't require cosmos SDK context
-func createTestAccountService() *Account {
-	// Create a simple context without full SDK initialization to avoid codec issues
-	return &Account{
-		client: &client.Client{	
-		},
-	}
-}
 
 func TestGenerateMnemonic(t *testing.T) {
 	t.Run("Generate valid mnemonic", func(t *testing.T) {
@@ -35,8 +23,7 @@ func TestGenerateMnemonic(t *testing.T) {
 		assert.Equal(t, 24, len(words), "Generated mnemonic should have 24 words")
 
 		// Validate the generated mnemonic
-		account := createTestAccountService()
-		assert.True(t, account.ValidateMnemonic(mnemonic), "Generated mnemonic should be valid")
+		assert.True(t, ValidateMnemonic(mnemonic), "Generated mnemonic should be valid")
 
 		t.Logf("Generated mnemonic: %s...", getFirstWords(mnemonic, 3))
 	})
@@ -60,8 +47,6 @@ func TestGenerateMnemonic(t *testing.T) {
 }
 
 func TestValidateMnemonic(t *testing.T) {
-	account := createTestAccountService()
-
 	testCases := []struct {
 		name     string
 		mnemonic string
@@ -82,7 +67,7 @@ func TestValidateMnemonic(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := account.ValidateMnemonic(tc.mnemonic)
+			result := ValidateMnemonic(tc.mnemonic)
 			assert.Equal(t, tc.expected, result, "Validation result should match expected")
 
 			if tc.expected {
@@ -132,7 +117,7 @@ func TestGetPrivateKeyFromMnemonic(t *testing.T) {
 
 		require.NoError(t, err, "Should extract private key without error")
 		assert.NotEmpty(t, privateKey, "Private key should not be empty")
-		assert.Equal(t, 64, len(crypto.FromECDSA(privateKey)), "Private key should be 64 characters (32 bytes hex)")
+		assert.Equal(t, 32, len(crypto.FromECDSA(privateKey)), "Private key should be 32 bytes")
 	})
 
 	t.Run("Invalid mnemonic should return error", func(t *testing.T) {
@@ -250,20 +235,24 @@ func TestNewHDPathIterator(t *testing.T) {
 
 func TestAccountConsistency(t *testing.T) {
 	t.Run("Private key from mnemonic matches address generation", func(t *testing.T) {
-		// Generate address from mnemonic
-		address1, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
-		require.NoError(t, err)
-
-		// Get private key from same mnemonic
-		privateKey, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
+		// Get private key from mnemonic
+		privateKey1, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
 		require.NoError(t, err)
 
 		// Generate address from private key
-		address2Hex, err := GetAddressFromPrivateKey(privateKey)
+		address1, err := GetAddressFromPrivateKey(privateKey1)
 		require.NoError(t, err)
 
-		address2 := common.HexToAddress(address2Hex.Hex())
-		assert.Equal(t, address1, address2, "Addresses should match when derived from same mnemonic")
+		// Get private key again from same mnemonic
+		privateKey2, err := CreatePrivateKeyFromMnemonic(TestMnemonic, TestPassword)
+		require.NoError(t, err)
+
+		// Generate address from second private key
+		address2, err := GetAddressFromPrivateKey(privateKey2)
+		require.NoError(t, err)
+
+		// Both addresses should be identical
+		assert.Equal(t, address1.Hex(), address2.Hex(), "Addresses should match when derived from same mnemonic")
 	})
 }
 
@@ -288,8 +277,7 @@ func TestWithEnvironmentVariables(t *testing.T) {
 		mnemonic, err := GenerateMnemonic()
 		require.NoError(t, err)
 
-		account := createTestAccountService()
-		isValid := account.ValidateMnemonic(mnemonic)
+		isValid := ValidateMnemonic(mnemonic)
 		assert.True(t, isValid, "Generated mnemonic should be valid")
 
 		t.Log("Environment test completed successfully")
