@@ -36,7 +36,8 @@ func init() {
 }
 
 func main() {
-	fmt.Println("=== LBB SDK Go - Quick Start Example ===\n")
+	fmt.Println("=== LBB SDK Go - Quick Start Example ===")
+	fmt.Println()
 
 	// Step 1: Generate new wallet
 	fmt.Println("Step 1: Generating new wallet...")
