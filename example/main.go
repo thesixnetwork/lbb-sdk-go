@@ -25,16 +25,6 @@ const (
 	recipientEVM    = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
 )
 
-func init() {
-	mnemonic, _ := account.GenerateMnemonic()
-	fmt.Println("-----------------------------------------------------")
-	fmt.Println()
-	fmt.Println()
-	fmt.Printf("THIS IS JUST DEMO HOW TO GEN MNEMONIC \n: %+v \n", mnemonic)
-	fmt.Println()
-	fmt.Println()
-	fmt.Println("-----------------------------------------------------")
-}
 
 func main() {
 	fmt.Println("=== LBB SDK Go - Quick Start Example ===")
