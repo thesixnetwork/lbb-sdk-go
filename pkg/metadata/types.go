@@ -7,4 +7,5 @@ type CertificateInfo struct {
 	CertNumber   string
 	CustomerID   string
 	IssueDate    string
+	ActiveStatus       string
 }

@@ -32,3 +32,16 @@ func GetJSONMetadata() ([]byte, error) {
 
 	return metadataByte, nil
 }
+
+//go:embed metadata_with_input.json
+var metadataWithInput embed.FS
+func GetJSONMetadataWithInput() ([]byte, error) {
+	var metadataByte []byte
+
+	metadataByte, err := metadataWithInput.ReadFile("metadata_with_input.json")
+	if err != nil {
+		return metadataByte, fmt.Errorf("error on reading metadata_with_input.json file: %+v", err)
+	}
+
+	return metadataByte, nil
+}

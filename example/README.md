@@ -1,148 +1,421 @@
-> [!IMPORTANT]
-> If the example in `example/main.go` fails, please refer to `cmd/main.go` in the root directory—this is the most up-to-date usage pattern for the LBB SDK.
->
-> The instructions, patterns, and methods here are for reference and may be slightly out of sync with the latest SDK features.  
-> Always cross-check with `cmd/main.go` for the recommended workflow and error handling.
-
 # LBB SDK Go - Examples
 
-This directory contains example code demonstrating how to use the LBB SDK Go for certificate management on the SIX Protocol.
+Welcome to the LBB SDK Go examples directory! This collection of examples will help you understand how to use the SDK to create and manage certificate NFTs with metadata on the blockchain.
 
-## Examples
+## What's in This Directory
 
-### 1. Complete Example (`main.go`)
+### Step-by-step Examples
 
-A comprehensive example showcasing all SDK features including:
+Step-by-step examples that teach you each function:
 
-- Account creation and management
-- Mnemonic generation
-- Schema deployment
-- Metadata minting
-- Certificate freezing/unfreezing
-- EVM contract deployment
-- NFT minting and transfers
-- Ownership verification
+1. **[01_generate_wallet.go](./01_generate_wallet.go)** - Generate a new wallet with mnemonic
+2. **[02_create_account.go](./02_create_account.go)** - Connect to network and create account
+3. **[03_deploy_schema.go](./03_deploy_schema.go)** - Deploy certificate schema
+4. **[04_mint_metadata.go](./04_mint_metadata.go)** - Mint certificate metadata
+5. **[05_deploy_contract.go](./05_deploy_contract.go)** - Deploy EVM NFT contract
+6. **[06_mint_nft.go](./06_mint_nft.go)** - Mint certificate NFT
+7. **[07_transfer_nft.go](./07_transfer_nft.go)** - Transfer NFT to another address
+8. **[08_freeze_metadata.go](./08_freeze_metadata.go)** - Freeze and unfreeze metadata
+9. **[09_query_nft.go](./09_query_nft.go)** - Query NFT information
+10. **[10_balance_operations.go](./10_balance_operations.go)** - Query and transfer balances
+11. **[11_query_metadata.go](./11_query_metadata.go)** - Query schema and certificate metadata
+12. **[12_query_evm.go](./12_query_evm.go)** - Query EVM information (gas, nonce, ownership)
 
-**Run the complete example:**
+### Full Example
+
+- **[main.go](./main.go)** - Complete workflow in a single file
+
+### Documentation
+- **This README** - Overview and quick start
+
+## Quick Start
+
+#### Learn Step by Step (Recommended)
+
+Follow the numbered examples in order:
+
 ```bash
-cd example
+go run 01_generate_wallet.go
+go run 02_create_account.go
+go run 03_deploy_schema.go
+go run 04_mint_metadata.go
+go run 05_deploy_contract.go
+# ... and so on
+```
+
+#### Path B: Run Complete Example
+
+Run the full workflow:
+
+```bash
 go run main.go
 ```
 
-If this fails or does not act as expected, **switch to**:
+### 3. Update Configuration
+
+After running deployment scripts, update these values in subsequent scripts:
+
+- **Contract Address**: From `05_deploy_contract.go` output
+- **Schema Name**: Your chosen schema name from `03_deploy_schema.go`
+- **Mnemonic**: Use test mnemonic or your own
+
+## Documentation
+
+- **[Tutorial Guide](../docs/TUTORIAL.md)** - Comprehensive step-by-step tutorial
+- **[Workflow Architecture](../docs/WORKFLOW_ARCHITECTURE.md)** - Understanding dual-layer architecture and parallel execution
+- **[Root README](../readme.md)** - Main SDK documentation and quick reference
+
+## This example covers with
+
+1. **Account Management**
+   - Generate wallets and mnemonics
+   - Create accounts with Cosmos and EVM addresses
+   - Connect to testnet and mainnet
+
+2. **Schema Operations**
+   - Deploy certificate schemas
+   - Manage metadata structure
+   - Mint metadata instances
+   - Freeze and unfreeze certificates
+
+3. **EVM Contract Operations**
+   - Deploy NFT contracts
+   - Link contracts to schemas
+   - Interact with smart contracts
+
+4. **NFT Management**
+   - Mint certificate NFTs
+   - Transfer ownership
+   - Query token information
+
+5. **Balance Operations**
+   - Query all balances
+   - Query Cosmos layer balance (usix)
+   - Query EVM layer balance (asix)
+   - Transfer tokens between addresses
+
+6. **Query Operations**
+   - Query NFT schemas and metadata
+   - Check executor permissions
+   - Query EVM information (gas price, chain ID, nonce)
+   - Verify NFT ownership
+   - Check transaction receipts
+
+## Network Information
+
+- **Testnet (fivenet)**: For development and testing
+  - Use `client.NewClient(ctx, false)`
+  - Free test tokens available
+
+- **Mainnet (sixnet)**: For production
+  - Use `client.NewClient(ctx, true)`
+  - Real tokens required
+
+## Common Operations
+
+### Balance Operations
+
+The SDK provides comprehensive balance query and transfer operations:
+
+#### Query Balances
+
+```go
+// Create balance client for queries
+bal:= balance.NewBalance(*acc)
+
+// Get all balances
+allBalances, err := bal.GetBalance()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get balance: %v", err))
+}
+fmt.Printf("All balances: %v\n", allBalances)
+
+// Get Cosmos layer balance (usix)
+cosmosBalance, err := bal.GetCosmosBalance()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get cosmos balance: %v", err))
+}
+fmt.Printf("Cosmos balance: %v\n", cosmosBalance)
+
+// Get EVM layer balance (asix)
+evmBalance, err := bal.GetEVMBalance()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get EVM balance: %v", err))
+}
+fmt.Printf("EVM balance: %v\n", evmBalance)
+```
+
+#### Transfer Tokens
+
+```go
+// Create balance message client for transactions
+balMsg, err := balance.NewBalanceMsg(*acc)
+if err != nil {
+    panic(fmt.Sprintf("Failed to create balance msg: %v", err))
+}
+
+// Define amount to send (1 SIX = 1,000,000 usix)
+amount := sdk.NewCoins(sdk.NewInt64Coin("usix", 1000000))
+
+// Send balance (returns immediately)
+res, err := balMsg.SendBalance("6x1recipient_address_here", amount)
+if err != nil {
+    panic(fmt.Sprintf("Failed to send balance: %v", err))
+}
+fmt.Printf("Transfer tx: %s\n", res.TxHash)
+
+// OR send and wait for confirmation
+res, err = balMsg.SendBalanceAndWait("6x1recipient_address_here", amount)
+if err != nil {
+    panic(fmt.Sprintf("Failed to send balance: %v", err))
+}
+fmt.Printf("Transfer confirmed: %s\n", res.TxHash)
+```
+
+#### Balance Denominations
+
+- **usix**: Cosmos layer token (1 SIX = 1,000,000 usix)
+  - Used for Cosmos transactions (metadata, schemas, etc.)
+- **asix**: EVM layer token (1 SIX = 1,000,000,000,000,000,000 asix)
+  - Used for EVM transactions (contract deployment, NFT minting)
+
+### Metadata Query Operations
+
+Query certificate schemas and metadata on the Cosmos layer:
+
+#### Query Schema Information
+
+```go
+metaClient:= metadata.NewMetadata(*acc)
+// Get NFT schema details
+schema, err := metaClient.GetNFTSchema(schemaName)
+if err != nil {
+    panic(fmt.Sprintf("Failed to get schema: %v", err))
+}
+fmt.Printf("Schema: %v\n", schema)
+fmt.Printf("Owner: %s\n", schema.NftSchemaBase.Owner)
+fmt.Printf("Contract Address: %s\n", schema.NftSchemaBase.OriginData.OriginContractAddress)
+```
+
+#### Query Certificate Metadata
+
+```go
+// Get certificate metadata for a specific token
+nftData, err := metaClient.GetNFTMetadata(schemaName, "1")
+if err != nil {
+    panic(fmt.Sprintf("Failed to get metadata: %v", err))
+}
+fmt.Printf("Token ID: %s\n", nftData.TokenId)
+fmt.Printf("Owner: %s\n", nftData.OwnerAddressType)
+
+// Access certificate attributes
+if nftData.OnchainAttributes != nil {
+    fmt.Printf("Status: %s\n", nftData.OnchainAttributes.Status.Value)
+    fmt.Printf("Weight: %s\n", nftData.OnchainAttributes.Weight.Value)
+}
+```
+
+### EVM Query Operations
+
+Query NFT ownership and EVM layer information:
+
+#### Query Gas Price and Chain Info
+
+```go
+evmClient := evm.NewEVMClient(*acc)
+
+// Get current gas price
+gasPrice, err := evmClient.GasPrice()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get gas price: %v", err))
+}
+fmt.Printf("Gas price: %v wei\n", gasPrice)
+
+// Get chain ID
+chainID, err := evmClient.ChainID()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get chain ID: %v", err))
+}
+fmt.Printf("Chain ID: %v\n", chainID)
+
+// Get nonce (transaction count)
+nonce, err := evmClient.GetNonce()
+if err != nil {
+    panic(fmt.Sprintf("Failed to get nonce: %v", err))
+}
+fmt.Printf("Nonce: %d\n", nonce)
+```
+
+#### Query NFT Ownership
+
+```go
+// Get token owner
+owner := evmClient.TokenOwner(contractAddress, tokenId)
+fmt.Printf("Token owner: %s\n", owner.Hex())
+
+// Verify ownership
+if owner.Hex() == acc.GetEVMAddress().Hex() {
+    fmt.Println("You own this NFT")
+}
+```
+
+#### Check Transaction Receipt
+
+```go
+// Check transaction receipt
+err = evmClient.CheckTransactionReceipt(tx.Hash())
+if err != nil {
+    panic(fmt.Sprintf("Transaction check failed: %v", err))
+}
+// This will print transaction details, gas used, and status
+```
+
+### Certificate Freeze/Unfreeze
+
+Manage certificate state on the Cosmos layer:
+
+```go
+meta, err := metadata.NewMetadataMsg(*acc, schemaName)
+
+// Freeze a certificate
+res, err := meta.FreezeCertificate("1")
+if err != nil {
+    panic(fmt.Sprintf("Failed to freeze certificate: %v", err))
+}
+fmt.Printf("Certificate frozen, tx: %s\n", res.TxHash)
+
+// Wait for confirmation
+err = client.WaitForTransaction(res.TxHash)
+if err != nil {
+    panic(fmt.Sprintf("Transaction failed: %v", err))
+}
+
+// Unfreeze a certificate
+res, err = meta.UnfreezeCertificate("1")
+if err != nil {
+    panic(fmt.Sprintf("Failed to unfreeze certificate: %v", err))
+}
+fmt.Printf("Certificate unfrozen, tx: %s\n", res.TxHash)
+```
+
+## Procedures
+
+1. **Start with numbered examples** - They build on each other
+2. **Use the test mnemonic** - It has testnet tokens for testing
+3. **Save important values** - Contract addresses, schema names, tx hashes
+4. **Read the comments** - Each example has detailed explanations
+5. **EVM and Cosmos Layer** - User able to send transactions to each layer at the same time.
+
+## Quick Reference
+
+### Generate Wallet
 ```bash
-cd cmd
-go run main.go
+go run 01_generate_wallet.go
 ```
 
-and check the code in `cmd/main.go` for the latest SDK usage.
+### Create Account
+```bash
+go run 02_create_account.go
+```
 
-## Prerequisites
+### Deploy Schema
+```bash
+go run 03_deploy_schema.go
+# Save the schema name!
+```
 
-1. **Go 1.21+** installed
-2. **Network access** to testnet (fivenet) or mainnet (sixnet)
-3. **Funded account** with tokens for gas fees
+### Mint Metadata
+```bash
+go run 04_mint_metadata.go
+# Uses the schema from step 3
+```
 
-## Getting Test Tokens
+### Deploy Contract
+```bash
+go run 05_deploy_contract.go
+# Save the contract address!
+```
 
-For testing on fivenet (testnet), you'll need test tokens:
+### Mint NFT
+```bash
+# Update contractAddress in the file first
+go run 06_mint_nft.go
+```
 
-1. Generate a new wallet using the SDK
-2. Request faucet tokens from the SIX Protocol Discord [Faucet](https://discord.com/channels/940155834426613811/1352152627290443858) or Telegram
-3. Use the wallet address to receive test tokens
+### Transfer NFT
+```bash
+# Update contractAddress and recipientAddress
+go run 07_transfer_nft.go
+```
 
-## Configuration
+### Freeze/Unfreeze
+```bash
+go run 08_freeze_metadata.go
+```
 
-### Network Selection
+### Query NFT
+```bash
+# Update contractAddress
+go run 09_query_nft.go
+```
 
-**Testnet (Fivenet):**
+### Balance Operations
+```bash
+go run 10_balance_operations.go
+# Uncomment code to send tokens
+```
+
+### Query Metadata
+```bash
+# Update schemaName
+go run 11_query_metadata.go
+```
+
+### Query EVM Information
+```bash
+go run 12_query_evm.go
+# Update contractAddress for NFT ownership queries
+```
+
+## Security Notes
+
+- ⚠️ **Never commit mnemonics** to version control
+- ⚠️ **Test on testnet first** before mainnet
+- ⚠️ **Secure production keys** properly
+- ⚠️ **Use environment variables** for sensitive data
+
+## Best Practices
+
+### Error Handling
+
+Always check for errors and wait for transaction confirmation:
+
 ```go
-client, err := client.NewClient(context.Background(), false)
+res, err := meta.BroadcastTx(msg)
 if err != nil {
-    panic(fmt.Sprintf("Failed to create client: %v", err))
+    panic(fmt.Sprintf("Failed to broadcast: %v", err))
+}
+
+err = client.WaitForTransaction(res.TxHash)
+if err != nil {
+    panic(fmt.Sprintf("Transaction failed: %v", err))
 }
 ```
-
-**Mainnet (Sixnet):**
-```go
-client, err := client.NewClient(context.Background(), true)
-if err != nil {
-    panic(fmt.Sprintf("Failed to create client: %v", err))
-}
-```
-
-### Custom Local Node
-
-For local development with your own node:
-```go
-client, err := client.NewCustomClient(
-    context.Background(),
-    "http://localhost:26657",  // Tendermint RPC
-    "http://localhost:1317",   // Cosmos REST API
-    "http://localhost:8545",   // EVM JSON-RPC
-    "testnet",                 // Chain ID type
-)
-if err != nil {
-    panic(fmt.Sprintf("Failed to create client: %v", err))
-}
-```
-
-## Understanding the Flow
-
-### Certificate Issuance Flow
-
-1. **Create Wallet** → Generate mnemonic and derive addresses
-2. **Deploy Schema** → Define certificate structure on Cosmos layer
-3. **Mint Metadata** → Create certificate metadata on Cosmos layer
-4. **Deploy Contract** → Deploy NFT contract on EVM layer
-5. **Mint NFT** → Create NFT token on EVM layer
-6. **Transfer** _(optional)_ → Transfer ownership to recipient
-7. **Manage** _(optional)_ → Freeze/unfreeze certificates as needed
-
-### Dual-Layer Architecture
-
-The LBB SDK operates on two layers:
-
-**Cosmos Layer (Gen2 Data Layer):**
-- Schema definitions
-- Certificate metadata
-- Data mutations and transforms
-- Certificate freezing/unfreezing
-
-**EVM Layer:**
-- NFT smart contracts
-- Token minting
-- Token transfers
-- Ownership tracking
-
-Both layers work together to provide a complete certificate management solution.
-
-## Common Patterns
-
-_(All example snippets below are for reference. See [`cmd/main.go`](../cmd/main.go) if unsure about compatibility or error handling.)_
 
 ### Account Creation
 
 ```go
 // Generate new mnemonic
 mnemonic, err := account.GenerateMnemonic()
+
+// Or use existing mnemonic
+mnemonic := "your twelve word mnemonic phrase here..."
+
+// Create account
+acc, err := account.NewAccount(client, "my-account", mnemonic, "")
 if err != nil {
-    panic(fmt.Sprintf("Failed to generate mnemonic: %v", err))
+    panic(fmt.Sprintf("Failed to create account: %v", err))
 }
-
-fmt.Println("Mnemonic generated")
-fmt.Println("*Important** write this mnemonic phrase in a safe place.")
-fmt.Printf("\nMnemonic: %s\n\n", mnemonic)
-
-// Create account from mnemonic
-acc, err := account.NewAccount(client, "alice", mnemonic, "")
-if err != nil {
-    panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
-}
-
-fmt.Printf("Account created\n")
-fmt.Printf("  EVM Address: %s\n", acc.GetEVMAddress().Hex())
-fmt.Printf("  Cosmos Address: %s\n", acc.GetCosmosAddress().String())
 ```
 
 ### Schema Naming
@@ -155,412 +428,32 @@ const schemaName = "myorg.lbbv01"
 
 Choose a unique organization name to avoid conflicts.
 
-### Deploy Schema and Mint Metadata (Recommended Pattern)
+### Transaction Best Practices
 
-The recommended pattern is to build multiple messages and broadcast them together:
+- **Check balances** before sending transactions to ensure sufficient funds
+- **Use `SendBalanceAndWait()`** for confirmed transfers
+- **Wait for confirmations** using `client.WaitForTransaction()` or `client.WaitForEVMTransaction()`
+- **Handle errors gracefully** - don't assume transactions will succeed
+- **Query first** - verify state before making changes
 
-```go
-meta, err := metadata.NewMetadataMsg(*acc, schemaName)
-if err != nil {
-    fmt.Printf("NewMetadataMsg error: %v\n", err)
-    return
-}
+### Dual-Layer Transactions
 
-// Build deploy schema message
-msgDeploySchema, err := meta.BuildDeployMsg()
-if err != nil {
-    fmt.Printf("Failed to build deploy message: %v\n", err)
-    return
-}
+The SDK supports simultaneous transactions on both Cosmos and EVM layers:
 
-// Build mint metadata message
-msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
-if err != nil {
-    fmt.Printf("Failed to build create metadata: %v\n", err)
-    return
-}
+> **Important:** You can execute Deploy Schema (Cosmos) and Deploy Contract (EVM) at the same time without nonce/sequence conflicts because they operate on separate layers.
 
-// Combine messages and broadcast
-var msgs []sdk.Msg
-msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
+**Examples of parallel execution:**
+- Deploy Schema + Deploy NFT Contract (different layers)
+- Mint Metadata + Mint NFT (different layers)
+- Freeze Metadata + Transfer NFT (different layers)
 
-res, err := meta.BroadcastTxAndWait(msgs...)
-if err != nil {
-    fmt.Printf("Broadcast Tx error: %v\n", err)
-    return
-}
+**Sequential execution required:**
+- Multiple Cosmos transactions (must wait for confirmation)
+- Multiple EVM transactions (nonce must increment)
 
-fmt.Printf("Schema deployed and metadata minted\n")
-fmt.Printf("  Schema Code: %s\n", schemaName)
-fmt.Printf("  Transaction: %s\n", res.TxHash)
-```
+> **Best Practice:** For reliability on the Cosmos layer, deploy the certificate schema and wait for transaction confirmation before creating certificate metadata (e.g., use `meta.DeployCertificateSchema()`, wait for confirmation, then call `meta.CreateCertificateMetadata()`). However, you can batch multiple messages in one Cosmos transaction using `meta.BroadcastTx(msg1, msg2, ...)`.
 
-> **Note:** `BroadcastTxAndWait()` will automatically wait for transaction confirmation. For more control, use `BroadcastTx()` followed by `client.WaitForTransaction()`.
-
-### Certificate Freeze/Unfreeze
-
-Manage certificate state on the Cosmos layer:
-
-```go
-meta, err := metadata.NewMetadataMsg(*acc, schemaName)
-if err != nil {
-    fmt.Printf("NewMetadataMsg error: %v\n", err)
-    return
-}
-
-// Freeze a certificate
-res, err := meta.FreezeCertificate("1")
-if err != nil {
-    fmt.Printf("Freeze error: %v\n", err)
-    return
-}
-
-// Wait for confirmation
-err = client.WaitForTransaction(res.TxHash)
-if err != nil {
-    fmt.Printf("Error waiting for freeze: %v\n", err)
-    return
-}
-
-fmt.Printf("Certificate frozen, tx: %s\n", res.TxHash)
-
-// Unfreeze a certificate
-res, err = meta.UnfreezeCertificate("1")
-if err != nil {
-    fmt.Printf("Unfreeze error: %v\n", err)
-    return
-}
-
-fmt.Printf("Certificate unfrozen, tx: %s\n", res.TxHash)
-```
-
-### Deploy EVM NFT Contract
-
-```go
-evmClient := evm.NewEVMClient(*acc)
-
-// Deploy certificate contract
-contractAddress, tx, err := evmClient.DeployCertificateContract(
-    "MyCertificate",
-    "CERT",
-    schemaName,
-)
-if err != nil {
-    fmt.Printf("EVM deploy error: %v\n", err)
-    return
-}
-
-fmt.Printf("Deploy Tx: %s\n", tx.Hash().Hex())
-fmt.Printf("Deploy at Nonce: %v\n", tx.Nonce())
-
-// Wait for deployment transaction to be mined
-_, err = client.WaitForEVMTransaction(tx.Hash())
-if err != nil {
-    fmt.Printf("Error waiting for deployment: %v\n", err)
-    return
-}
-
-fmt.Printf("Contract deployed at: %s\n", contractAddress.Hex())
-```
-
-### Mint NFT
-
-```go
-evmClient := evm.NewEVMClient(*acc)
-
-tokenId := uint64(1)
-tx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
-if err != nil {
-    fmt.Printf("EVM mint error: %v\n", err)
-    return
-}
-
-fmt.Printf("Mint Tx: %s\n", tx.Hash().Hex())
-fmt.Printf("Mint at Nonce: %v\n", tx.Nonce())
-
-// Wait for mint transaction
-_, err = client.WaitForEVMTransaction(tx.Hash())
-if err != nil {
-    fmt.Printf("Error waiting for mint: %v\n", err)
-    return
-}
-
-fmt.Printf("NFT minted with token ID: %d\n", tokenId)
-```
-
-### Transfer NFT
-
-```go
-import "github.com/ethereum/go-ethereum/common"
-
-evmClient := evm.NewEVMClient(*acc)
-
-recipientEVM := "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
-tokenId := uint64(1)
-
-tx, err := evmClient.TransferCertificateNFT(
-    contractAddress,
-    common.HexToAddress(recipientEVM),
-    tokenId,
-)
-if err != nil {
-    fmt.Printf("EVM transfer error: %v\n", err)
-    return
-}
-
-fmt.Printf("Transfer Tx: %s\n", tx.Hash().Hex())
-fmt.Printf("Transfer at Nonce: %v\n", tx.Nonce())
-
-// Wait for transfer transaction
-_, err = client.WaitForEVMTransaction(tx.Hash())
-if err != nil {
-    fmt.Printf("Error waiting for transfer: %v\n", err)
-    return
-}
-
-fmt.Printf("NFT transferred to: %s\n", recipientEVM)
-```
-
-### Verify NFT Ownership
-
-```go
-evmClient := evm.NewEVMClient(*acc)
-
-currentOwner := evmClient.TokenOwner(contractAddress, tokenId)
-fmt.Printf("Current owner: %s\n", currentOwner.Hex())
-```
-
-### Balance Operations
-
-Send tokens on the Cosmos layer:
-
-```go
-import (
-    "cosmossdk.io/math"
-    sdk "github.com/cosmos/cosmos-sdk/types"
-    "github.com/thesixnetwork/lbb-sdk-go/pkg/balance"
-)
-
-balanceMsg, err := balance.NewBalanceMsg(*acc)
-if err != nil {
-    fmt.Printf("NewBalanceMsg error: %v\n", err)
-    return
-}
-
-sendAmount := sdk.Coin{
-    Amount: math.NewInt(1000000),
-    Denom:  "usix",
-}
-
-res, err := balanceMsg.SendBalanceAndWait(
-    "6x1recipient_address_here",
-    sdk.NewCoins(sendAmount),
-)
-if err != nil {
-    fmt.Printf("Send error: %v\n", err)
-    return
-}
-
-fmt.Printf("Transfer tx: %s\n", res.TxHash)
-```
-
-### Complete Flow Example
-
-Here's the typical flow from `example/main.go`:
-
-```go
-const (
-    contractName   = "MyCertificate"
-    contractSymbol = "CERT"
-    schemaName     = "myorg.lbbv01"
-    recipientEVM   = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
-)
-
-func main() {
-    ctx := context.Background()
-    
-    // 1. Initialize client
-    client, err := client.NewClient(ctx, false)
-    if err != nil {
-        panic(fmt.Sprintf("Failed to create client: %v", err))
-    }
-    
-    // 2. Generate mnemonic and create account
-    mnemonic, err := account.GenerateMnemonic()
-    if err != nil {
-        panic(fmt.Sprintf("Failed to generate mnemonic: %v", err))
-    }
-    
-    acc, err := account.NewAccount(client, "alice", mnemonic, "")
-    if err != nil {
-        panic("Failed to create account")
-    }
-    
-    // 3. Deploy schema and mint metadata
-    meta, err := metadata.NewMetadataMsg(*acc, schemaName)
-    if err != nil {
-        panic(fmt.Sprintf("NewMetadataMsg error: %v", err))
-    }
-    
-    msgDeploySchema, err := meta.BuildDeployMsg()
-    if err != nil {
-        panic(fmt.Sprintf("Failed to build deploy message: %v", err))
-    }
-    
-    msgCreateMetadata, err := meta.BuildMintMetadataMsg("1")
-    if err != nil {
-        panic(fmt.Sprintf("Failed to build metadata: %v", err))
-    }
-    
-    var msgs []sdk.Msg
-    msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
-    
-    res, err := meta.BroadcastTxAndWait(msgs...)
-    if err != nil {
-        panic(fmt.Sprintf("Broadcast error: %v", err))
-    }
-    
-    // 4. Deploy EVM contract
-    evmClient := evm.NewEVMClient(*acc)
-    contractAddress, tx, err := evmClient.DeployCertificateContract(
-        contractName,
-        contractSymbol,
-        schemaName,
-    )
-    if err != nil {
-        panic(fmt.Sprintf("Deploy error: %v", err))
-    }
-    
-    _, err = client.WaitForEVMTransaction(tx.Hash())
-    if err != nil {
-        panic(fmt.Sprintf("Wait error: %v", err))
-    }
-    
-    // 5. Mint NFT
-    tokenId := uint64(1)
-    tx, err = evmClient.MintCertificateNFT(contractAddress, tokenId)
-    if err != nil {
-        panic(fmt.Sprintf("Mint error: %v", err))
-    }
-    
-    _, err = client.WaitForEVMTransaction(tx.Hash())
-    if err != nil {
-        panic(fmt.Sprintf("Wait error: %v", err))
-    }
-    
-    // 6. Freeze/Unfreeze certificate
-    res, err = meta.FreezeCertificate("1")
-    if err != nil {
-        panic(fmt.Sprintf("Freeze error: %v", err))
-    }
-    
-    err = client.WaitForTransaction(res.TxHash)
-    if err != nil {
-        panic(fmt.Sprintf("Wait error: %v", err))
-    }
-    
-    res, err = meta.UnfreezeCertificate("1")
-    if err != nil {
-        panic(fmt.Sprintf("Unfreeze error: %v", err))
-    }
-    
-    // 7. Transfer NFT
-    tx, err = evmClient.TransferCertificateNFT(
-        contractAddress,
-        common.HexToAddress(recipientEVM),
-        tokenId,
-    )
-    if err != nil {
-        panic(fmt.Sprintf("Transfer error: %v", err))
-    }
-    
-    _, err = client.WaitForEVMTransaction(tx.Hash())
-    if err != nil {
-        panic(fmt.Sprintf("Wait error: %v", err))
-    }
-    
-    // 8. Verify ownership
-    currentOwner := evmClient.TokenOwner(contractAddress, tokenId)
-    fmt.Printf("Current owner: %s\n", currentOwner.Hex())
-}
-```
-
-## Key Differences Between Layers
-
-### Cosmos Layer Operations
-- Use `meta.BroadcastTx()` or `meta.BroadcastTxAndWait()`
-- Wait with `client.WaitForTransaction(res.TxHash)`
-- Handle multiple messages in one transaction
-- Operations: Deploy schema, mint metadata, freeze/unfreeze
-
-### EVM Layer Operations
-- Direct function calls return `*types.Transaction`
-- Wait with `client.WaitForEVMTransaction(tx.Hash())`
-- Each transaction is separate
-- Operations: Deploy contract, mint NFT, transfer NFT
-
-> **Important:** Cosmos and EVM layers operate independently. You can execute operations on both layers simultaneously without nonce/sequence conflicts.
-
-## Error Handling Best Practices
-
-Always check errors and wait for confirmation:
-
-```go
-// For Cosmos transactions
-res, err := meta.BroadcastTx(msg)
-if err != nil {
-    fmt.Printf("Broadcast error: %v\n", err)
-    return
-}
-
-err = client.WaitForTransaction(res.TxHash)
-if err != nil {
-    fmt.Printf("Transaction failed: %v\n", err)
-    return
-}
-
-// For EVM transactions
-tx, err := evmClient.MintCertificateNFT(contractAddress, tokenId)
-if err != nil {
-    fmt.Printf("Mint error: %v\n", err)
-    return
-}
-
-_, err = client.WaitForEVMTransaction(tx.Hash())
-if err != nil {
-    fmt.Printf("Transaction failed: %v\n", err)
-    return
-}
-```
-
-## Modifying the Examples
-
-### Change Network
-
-Edit the client initialization:
-```go
-// false = testnet (fivenet), true = mainnet (sixnet)
-client, err := client.NewClient(context.Background(), false)
-```
-
-### Use Your Own Mnemonic
-
-Replace the test mnemonic with your own:
-```go
-const myMnemonic = "your twelve word mnemonic phrase..."
-acc, err := account.NewAccount(client, "my-wallet", myMnemonic, "")
-```
-
-### Customize Certificate Details
-
-Modify the schema name and contract details:
-```go
-const (
-    contractName   = "YourCertificateName"
-    contractSymbol = "YOURCERT"
-    schemaName     = "yourorg.yourschema"
-)
-```
+> **Note:** CreateCertificateMetadata and MintCertificateNFT can be executed at the same time without invalid nonce or sequence conflicts, because they operate on separate layers (Cosmos and EVM).
 
 ## Troubleshooting
 
@@ -572,7 +465,7 @@ const (
 ### "Insufficient funds" error
 - Ensure your account has enough tokens for gas fees
 - For testnet, request tokens from the faucet
-- Check your balance before transactions
+- Check your balance before transactions using balance query operations
 
 ### Transaction timeout
 - Network might be congested
@@ -582,26 +475,60 @@ const (
 ### Schema already exists
 - Schema codes must be unique
 - Use a different organization name or schema code
-- Check existing schemas before deploying
+- Check existing schemas before deploying using `GetNFTSchema()`
 
-### Invalid nonce errors
-- Ensure you wait for each EVM transaction to complete
-- Don't send multiple EVM transactions without waiting
-- Use `client.WaitForEVMTransaction()` between transactions
+### "Failed to get metadata" or "NFT not found"
+- Ensure the schema exists and is deployed
+- Verify the token ID is correct
+- Make sure metadata was created for that token
+- Check that you're querying the correct schema name
 
-## Next Steps
+### Nonce issues (EVM transactions)
+- If nonce errors occur, query current nonce using `GetNonce()`
+- Wait for pending transactions to confirm
+- Each transaction increments the nonce automatically
 
-1. Review the [main USAGE.md](../USAGE.md) for detailed documentation
-2. Explore the SDK source code to understand available methods
-3. Build your own application using these examples as a template
-4. Check the test files for additional usage patterns
+## 📈 Workflow Overview
 
-## Reference Files
+```
+01. Generate Wallet
+    ↓
+02. Create Account
+    ↓
+    ┌─────────────────────────────┬─────────────────────────────┐
+    ↓                             ↓                             ↓
+03. Deploy Schema        05. Deploy NFT Contract    10. Balance Operations
+    (Cosmos layer)           (EVM layer)                (Query & Transfer)
+    ↓                             ↓
+04. Mint Metadata         06. Mint NFT
+    (Cosmos layer)           (EVM layer)
+    ↓                             ↓
+08. Freeze/Unfreeze       07. Transfer NFT
+    Metadata (Optional)      (Optional)
+    ↓                             ↓
+11. Query Metadata        09. Query NFT Information
+    & Schema                  ↓
+    ↓                     12. Query EVM Information
+    └─────────────────────────────┘
 
-- **Latest Example:** [`cmd/main.go`](../cmd/main.go) - Most up-to-date patterns
-- **This Example:** [`example/main.go`](main.go) - User-friendly walkthrough
-- **Documentation:** [`../USAGE.md`](../USAGE.md) - Comprehensive API reference
+Note: Steps 03 and 05 can be executed simultaneously
+      (separate Cosmos and EVM layers)
+```
 
----
+### Example Projects
 
-**Always refer to [`cmd/main.go`](../cmd/main.go) for the latest, most robust example and error handling patterns.**
+Use these examples to build:
+- **Certificate Management System**: Issue, verify, and manage certificates
+- **Supply Chain Tracking**: Track products with certificate NFTs
+- **Credential Verification**: Issue and verify educational or professional credentials
+- **Digital Asset Registry**: Maintain a registry of authenticated assets
+- **Compliance Systems**: Automate compliance certificate management
+
+### Development Tips
+
+- Start with the step-by-step examples to understand each component
+- Use the complete example (main.go) as a reference for full workflows
+- Query operations are free - use them liberally for verification
+- Test all operations on testnet before mainnet deployment
+- Keep transaction hashes for audit trails
+- Implement proper logging for production applications

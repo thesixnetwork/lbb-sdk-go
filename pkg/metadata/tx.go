@@ -130,7 +130,7 @@ func (m *MetadataMsg) BuildMintMetadataMsg(tokenID string) (msg *nftmngrtypes.Ms
 func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info CertificateInfo) (msg *nftmngrtypes.MsgCreateMetadata, err error) {
 	var metadataInput nftmngrtypes.NftData
 
-	metadataBytes, err := assets.GetJSONMetadata()
+	metadataBytes, err := assets.GetJSONMetadataWithInput()
 	if err != nil {
 		return msg, err
 	}
@@ -158,6 +158,12 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 					Value: info.GoldStandard,
 				},
 			}
+		case "weight":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.Weight,
+				},
+			}
 		case "cert_number":
 			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
 				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
@@ -174,6 +180,12 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
 				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
 					Value: info.IssueDate,
+				},
+			}
+		case "active_status":
+			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
+				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
+					Value: info.ActiveStatus,
 				},
 			}
 		}

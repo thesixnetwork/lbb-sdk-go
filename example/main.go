@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	
+
 	_ "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +24,6 @@ const (
 	recipientCosmos = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
 	recipientEVM    = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
 )
-
 
 func main() {
 	fmt.Println("=== LBB SDK Go - Quick Start Example ===")
@@ -49,7 +48,15 @@ func main() {
 	// Step 2: Initialize client (fivenet = testnet)
 	fmt.Println("Step 2: Connecting to network...")
 	ctx := context.Background()
-	client, err := client.NewClient(ctx, false)
+	// client, err := client.NewClient(ctx, false)
+	client, err := client.NewCustomClient(
+		ctx,
+		"http://localhost:26657",
+		"http://localhost:1317",
+		"http://localhost:8545",
+		"testnet",
+	)
+
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create client: %v", err))
 	}
@@ -88,9 +95,22 @@ func main() {
 		return
 	}
 
+	msgCreateMetadataWithInfo, err := meta.BuildMintMetadataWithInfoMsg("2", metadata.CertificateInfo{
+		Status:       "TCI",
+		GoldStandard: "LBI",
+		Weight:       "2000g",
+		CertNumber:   "LBB_V1_01",
+		CustomerID:   "LBB_V1_USER_01",
+	})
+
+	if err != nil {
+		fmt.Printf("Failed to build create metadata: %v\n", err)
+		return
+	}
+
 	var msgs []sdk.Msg
 
-	msgs = append(msgs, msgDeploySchema, msgCreateMetadata)
+	msgs = append(msgs, msgDeploySchema, msgCreateMetadata, msgCreateMetadataWithInfo)
 
 	res, err := meta.BroadcastTxAndWait(msgs...)
 	if err != nil {
@@ -137,11 +157,10 @@ func main() {
 		return
 	}
 
-
 	fmt.Printf("NFT minted\n")
 	fmt.Printf("  Token ID: %d\n", tokenId)
 	fmt.Printf("  Transaction: %s\n\n", tx.Hash().Hex())
-	
+
 	// Step 7: Tryto change state of metadata
 
 	res, err = meta.FreezeCertificate("1")
@@ -165,7 +184,6 @@ func main() {
 
 	// Step 8: Transfer NFT
 	fmt.Println("Step 8: Transferring NFT to recipient...")
-
 
 	tx, err = evmClient.TransferCertificateNFT(contractAddress, common.HexToAddress(recipientEVM), tokenId)
 	if err != nil {
