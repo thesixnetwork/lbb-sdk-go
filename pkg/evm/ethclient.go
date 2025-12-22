@@ -2,6 +2,7 @@ package evm
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 
@@ -109,11 +110,11 @@ func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
 		return fmt.Errorf("failed to get receipt: %w", err)
 	}
 
-	fmt.Printf("Transaction: %s\n", txHash.Hex())
-	fmt.Printf("  Block Number: %d\n", receipt.BlockNumber.Uint64())
-	fmt.Printf("  Status: %d (1=success, 0=failed)\n", receipt.Status)
-	fmt.Printf("  Gas Used: %d\n", receipt.GasUsed)
-	fmt.Printf("  Contract Address: %s\n", receipt.ContractAddress.Hex())
+	log.Printf("Transaction: %s\n", txHash.Hex())
+	log.Printf("  Block Number: %d\n", receipt.BlockNumber.Uint64())
+	log.Printf("  Status: %d (1=success, 0=failed)\n", receipt.Status)
+	log.Printf("  Gas Used: %d\n", receipt.GasUsed)
+	log.Printf("  Contract Address: %s\n", receipt.ContractAddress.Hex())
 
 	if receipt.Status == 0 {
 		return fmt.Errorf("transaction failed")

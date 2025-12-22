@@ -144,12 +144,17 @@ func (m *MetadataMsg) BuildMintMetadataWithInfoMsg(tokenID string, info Certific
 	metadataInput.TokenId = tokenID
 	metadataInput.TokenOwner = m.account.GetCosmosAddress().String()
 
+	certStatus := InactiveCertStr
+	if info.Status == 1 {
+		certStatus = ActiveCertStr
+	}
+
 	for _, attr := range metadataInput.OnchainAttributes {
 		switch attr.Name {
 		case "status":
 			attr.Value = &nftmngrtypes.NftAttributeValue_StringAttributeValue{
 				StringAttributeValue: &nftmngrtypes.StringAttributeValue{
-					Value: info.Status,
+					Value: certStatus,
 				},
 			}
 		case "gold_standard":
