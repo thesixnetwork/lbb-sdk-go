@@ -20,7 +20,7 @@ const (
 	BobAddress       = "6x13g50hqdqsjk85fmgqz2h5xdxq49lsmjdwlemsp"
 	BobEVMAddres     = "0x8a28fb81A084Ac7A276800957a19a6054BF86E4D"
 	ChalieEVMAddress = "0xde609F435E82D1D5f71105CED56d06dDADB148B3"
-	nftSchemaName    = "sixnetwork.lbbv05" // {ORGNAME}.{Schemacode}
+	nftSchemaName    = "sixnetwork.lbbv01" // {ORGNAME}.{Schemacode}
 	contractName     = "MyNFTCert"
 	contractSymbol   = "Cert"
 )
@@ -392,6 +392,165 @@ func main() {
 	fmt.Printf("  (Should be Charlie: %s)\n", ChalieEVMAddress)
 	fmt.Println("========================================")
 
+	// Step 10: Burn NFT directly
+	fmt.Println("\n========================================")
+	fmt.Println("[Step 10] Burning NFT directly")
+	fmt.Println("========================================")
+
+	// First mint a new NFT to burn
+	burnTokenID := tokenID + 3
+	fmt.Printf("Minting NFT #%d to burn...\n", burnTokenID)
+	tx, err = evmClient.MintCertificateNFT(contractAddress, burnTokenID)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to mint NFT for burning: %v\n", err)
+		return
+	}
+	fmt.Printf("  Transaction Hash: %s\n", tx.Hash().Hex())
+
+	fmt.Println("Waiting for mint transaction...")
+	_, err = client.WaitForEVMTransaction(tx.Hash())
+	if err != nil {
+		fmt.Printf("ERROR: Error waiting for mint: %v\n", err)
+		return
+	}
+	fmt.Printf("SUCCESS: NFT #%d minted\n\n", burnTokenID)
+
+	// Now burn it
+	fmt.Printf("Burning NFT #%d...\n", burnTokenID)
+	fmt.Printf("  Owner: %s\n", acc.GetEVMAddress().Hex())
+
+	burnTx, err := evmClient.BurnCertificateNFT(contractAddress, burnTokenID)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to burn NFT: %v\n", err)
+		return
+	}
+	fmt.Printf("  Transaction Hash: %s\n", burnTx.Hash().Hex())
+	fmt.Printf("  Nonce: %v\n", burnTx.Nonce())
+
+	fmt.Println("Waiting for burn transaction to be mined...")
+	_, err = client.WaitForEVMTransaction(burnTx.Hash())
+	if err != nil {
+		fmt.Printf("ERROR: Error waiting for burn: %v\n", err)
+		return
+	}
+
+	fmt.Printf("SUCCESS: NFT #%d burned successfully\n", burnTokenID)
+
+	// Verify the token was burned by checking owner
+	fmt.Println("\nVerifying burn...")
+	fmt.Printf("Querying owner of burned NFT #%d...\n", burnTokenID)
+	burnedOwner := evmClient.TokenOwner(contractAddress, burnTokenID)
+	fmt.Printf("  Owner address: %s\n", burnedOwner.Hex())
+
+	zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	if burnedOwner == zeroAddress {
+		fmt.Println("  ✓ VERIFIED: Token burned successfully (owner is zero address)")
+	} else {
+		fmt.Printf("  ⚠ WARNING: Token still has owner: %s\n", burnedOwner.Hex())
+	}
+	fmt.Println("========================================")
+
+	// Step 11: Gasless Burn with Permit
+	fmt.Println("\n========================================")
+	fmt.Println("[Step 11] Gasless Burn Demo (Burn with Permit)")
+	fmt.Println("Admin pays gas for user's NFT burn")
+	fmt.Println("========================================")
+
+	fmt.Println("\nProcess Overview:")
+	fmt.Println("  1. Mint NFT to user account (the one we created earlier)")
+	fmt.Println("  2. User signs EIP-712 permit message offline (no gas)")
+	fmt.Println("  3. Admin broadcasts burn with permit (admin pays all gas)")
+	fmt.Println()
+
+	// Step 11.1: Mint NFT to user account
+	gaslessBurnTokenID := burnTokenID + 1
+	fmt.Printf("┌─ [Step 11.1] Minting NFT #%d to user account for gasless burn\n", gaslessBurnTokenID)
+	tx, err = evmClient.MintCertificateNFTToDestination(contractAddress, gaslessBurnTokenID, accFromGenMnemonic.GetEVMAddress())
+	if err != nil {
+		fmt.Printf("   ERROR: Failed to mint NFT: %v\n", err)
+		return
+	}
+	fmt.Printf("   Transaction Hash: %s\n", tx.Hash().Hex())
+	fmt.Printf("   Recipient: %s\n", accFromGenMnemonic.GetEVMAddress().Hex())
+
+	fmt.Println("   Waiting for mint transaction...")
+	_, err = client.WaitForEVMTransaction(tx.Hash())
+	if err != nil {
+		fmt.Printf("   ERROR: Error waiting for mint: %v\n", err)
+		return
+	}
+	fmt.Printf("└─ SUCCESS: NFT #%d minted to user\n\n", gaslessBurnTokenID)
+
+	// Step 11.2: User signs EIP-712 permit for burn
+	fmt.Println("┌─ [Step 11.2] User signs EIP-712 permit for burn (completely offline)")
+	offlineEVMClientForBurn := evm.NewEVMClient(*accFromGenMnemonic)
+
+	fmt.Printf("   User signs permit for NFT #%d burn\n", gaslessBurnTokenID)
+	fmt.Printf("   Owner (User): %s\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Println("   NOTE: This is just a signature, NO transaction, NO gas needed!")
+
+	// Set deadline to 1 hour from now
+	burnDeadline := big.NewInt(time.Now().Unix() + 3600)
+	burnPermitSig, err := offlineEVMClientForBurn.SignPermit(
+		contractName,
+		contractAddress,
+		acc.GetEVMAddress(), // Spender (admin/relay)
+		big.NewInt(int64(gaslessBurnTokenID)),
+		burnDeadline,
+	)
+	if err != nil {
+		fmt.Printf("   ERROR: Failed to sign burn permit: %v\n", err)
+		return
+	}
+	fmt.Println("└─ SUCCESS: Burn permit signed offline")
+	fmt.Println()
+
+	// Step 11.3: Admin broadcasts burn with permit
+	fmt.Println("┌─ [Step 11.3] Admin broadcasts burn using user's permit")
+	fmt.Println("   NOTE: Admin pays ALL gas, user pays NOTHING")
+	fmt.Printf("   Burning NFT #%d with permit\n", gaslessBurnTokenID)
+
+	burnWithPermitTx, err := evmClient.BurnWithPermit(
+		contractAddress,
+		accFromGenMnemonic.GetEVMAddress(), // From (owner)
+		big.NewInt(int64(gaslessBurnTokenID)),
+		burnPermitSig,
+	)
+	if err != nil {
+		fmt.Printf("   ERROR: Failed to execute burn with permit: %v\n", err)
+		return
+	}
+
+	fmt.Printf("   Transaction Hash: %s\n", burnWithPermitTx.Hash().Hex())
+	fmt.Println("   Waiting for confirmation...")
+	_, err = client.WaitForEVMTransaction(burnWithPermitTx.Hash())
+	if err != nil {
+		fmt.Printf("   ERROR: Error waiting for burn: %v\n", err)
+		return
+	}
+
+	fmt.Println("└─ SUCCESS: Gasless burn completed!")
+	fmt.Printf("\n   Burn Summary:\n")
+	fmt.Printf("      NFT #%d burned\n", gaslessBurnTokenID)
+	fmt.Printf("      Owner (User): %s (paid 0 gas! 🎉)\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Printf("      Gas paid by: Admin (%s)\n", acc.GetEVMAddress().Hex())
+	fmt.Printf("      Transaction Hash: %s\n", burnWithPermitTx.Hash().Hex())
+	fmt.Printf("      Method: EIP-2612 Permit (burnWithPermit)\n")
+
+	// Verify the token was burned by checking owner
+	fmt.Println("\n   Verifying burn...")
+	fmt.Printf("   Querying owner of burned NFT #%d...\n", gaslessBurnTokenID)
+	gaslessBurnedOwner := evmClient.TokenOwner(contractAddress, gaslessBurnTokenID)
+	fmt.Printf("   Owner address: %s\n", gaslessBurnedOwner.Hex())
+
+	zeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	if gaslessBurnedOwner == zeroAddress {
+		fmt.Println("   ✓ VERIFIED: Token burned successfully (owner is zero address)")
+	} else {
+		fmt.Printf("   ⚠ WARNING: Token still has owner: %s\n", gaslessBurnedOwner.Hex())
+	}
+	fmt.Println("========================================")
+
 	// Summary
 	fmt.Println("\n╔════════════════════════════════════════╗")
 	fmt.Println("║          EXECUTION SUMMARY             ║")
@@ -408,7 +567,9 @@ func main() {
 	fmt.Printf("NFTs Created:\n")
 	fmt.Printf("  NFT #1: Transferred to Bob\n")
 	fmt.Printf("  NFT #2: Minted to Bob\n")
-	fmt.Printf("  NFT #3: Gasless transfer to Charlie\n\n")
+	fmt.Printf("  NFT #3: Gasless transfer to Charlie\n")
+	fmt.Printf("  NFT #4: Burned directly by owner\n")
+	fmt.Printf("  NFT #5: Gasless burn via permit\n\n")
 
 	fmt.Printf("Final Owner of NFT #%d:\n", tokenID+2)
 	fmt.Printf("  Address: %s\n", currentOwner.Hex())
