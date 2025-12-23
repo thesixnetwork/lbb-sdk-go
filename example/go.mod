@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/math v1.3.0
 	github.com/cosmos/cosmos-sdk v0.50.10
 	github.com/ethereum/go-ethereum v1.13.5
-	github.com/thesixnetwork/lbb-sdk-go v0.1.1
+	github.com/thesixnetwork/lbb-sdk-go v0.1.2
 )
 
 require (

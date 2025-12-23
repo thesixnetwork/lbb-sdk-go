@@ -12,25 +12,26 @@ import (
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm"
 )
 
-// This example demonstrates gasless NFT transfer using EIP-2612 permit signatures.
-// In a gasless transfer, the NFT owner signs a permit message offline (no gas needed),
-// and a relayer/admin broadcasts the transfer transaction and pays for all gas fees.
+// This example demonstrates gasless NFT burning using EIP-2612 permit signatures.
+// In a gasless burn, the NFT owner signs a permit message offline (no gas needed),
+// and a relayer/admin broadcasts the burn transaction and pays for all gas fees.
 //
 // Usage:
-//   go run 07_1_gasless_transfer.go
+//   go run 13_gasless_burn.go
 //
 // What this script does:
 // 1. Creates two accounts: Admin (has funds) and User (no funds needed!)
 // 2. Admin mints an NFT to the User
 // 3. User signs an EIP-712 permit message offline (completely free, no blockchain interaction)
-// 4. Admin broadcasts the transfer using the permit (admin pays all gas)
-// 5. Verifies the NFT was transferred successfully
+// 4. Admin broadcasts the burn using the permit (admin pays all gas)
+// 5. Verifies the NFT was burned successfully (owner = zero address)
 //
 // Use Cases:
-// - Onboarding new users without requiring them to have tokens for gas
-// - Allowing users to transfer NFTs without paying gas fees
+// - Allow users to burn NFTs without paying gas fees
+// - Certificate revocation without user costs
 // - Building gasless dApps where the platform pays for user transactions
-// - Meta-transactions and relayer services
+// - Token cleanup and management services
+// - Eco-friendly token destruction (users don't need tokens to burn tokens!)
 //
 // Prerequisites:
 // - NFT contract must be deployed (see 05_deploy_contract.go)
@@ -44,11 +45,8 @@ const (
 	// Contract name (must match the name used during deployment)
 	contractName = "MyNFTCert"
 
-	// Token ID to mint and transfer
+	// Token ID to mint and burn
 	tokenId = uint64(1)
-
-	// Recipient address (who will receive the NFT)
-	recipientAddress = "0xde609F435E82D1D5f71105CED56d06dDADB148B3"
 
 	// Admin mnemonic (has funds to pay for gas)
 	adminMnemonic = account.TestMnemonic
@@ -59,10 +57,10 @@ const (
 )
 
 func main() {
-	fmt.Println("=== Step 7.1: Gasless Transfer (EIP-2612 Permit) ===")
+	fmt.Println("=== Step 13: Gasless Burn (EIP-2612 Permit) ===")
 	fmt.Println()
-	fmt.Println("This example demonstrates how to enable gasless NFT transfers")
-	fmt.Println("where users can transfer NFTs without paying any gas fees.")
+	fmt.Println("This example demonstrates how to enable gasless NFT burning")
+	fmt.Println("where users can burn NFTs without paying any gas fees.")
 	fmt.Println()
 
 	// Validate configuration
@@ -169,13 +167,12 @@ func main() {
 	fmt.Println("✓ User owns the NFT")
 	fmt.Println()
 
-	// Step 6: User signs EIP-712 permit offline (NO GAS!)
+	// Step 6: User signs EIP-712 permit for burn offline (NO GAS!)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("Step 6: User signs EIP-712 permit (COMPLETELY OFFLINE)")
+	fmt.Println("Step 6: User signs EIP-712 permit for burn (COMPLETELY OFFLINE)")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	userEvmClient := evm.NewEVMClient(*userAcc)
-	recipientAddr := common.HexToAddress(recipientAddress)
 
 	fmt.Println("💡 This is just a cryptographic signature:")
 	fmt.Println("   • NO transaction sent to blockchain")
@@ -184,9 +181,8 @@ func main() {
 	fmt.Println("   • Can be done completely offline")
 	fmt.Println()
 
-	fmt.Printf("User signs permit for NFT #%d transfer:\n", tokenId)
-	fmt.Printf("   From (User):      %s\n", userAcc.GetEVMAddress().Hex())
-	fmt.Printf("   To (Recipient):   %s\n", recipientAddress)
+	fmt.Printf("User signs permit for NFT #%d burn:\n", tokenId)
+	fmt.Printf("   Owner (User):     %s\n", userAcc.GetEVMAddress().Hex())
 	fmt.Printf("   Spender (Admin):  %s\n", adminAcc.GetEVMAddress().Hex())
 
 	// Set deadline to 1 hour from now (Unix timestamp)
@@ -194,7 +190,7 @@ func main() {
 	fmt.Printf("   Deadline:         %s\n", time.Unix(deadline.Int64(), 0).Format(time.RFC3339))
 	fmt.Println()
 
-	fmt.Println("Signing permit message...")
+	fmt.Println("Signing permit message for burn...")
 	permitSig, err := userEvmClient.SignPermit(
 		contractName,
 		contractAddr,
@@ -206,66 +202,66 @@ func main() {
 		panic(fmt.Sprintf("Failed to sign permit: %v", err))
 	}
 
-	fmt.Println("✓ Permit signed successfully!")
-	fmt.Printf("   v: %d\n", permitSig.V)
+	fmt.Println("✓ Burn permit signed successfully!")
 	fmt.Println()
 	fmt.Println("🎉 User paid ZERO gas for this signature!")
 	fmt.Println()
 
-	// Step 7: Admin broadcasts transfer with permit (ADMIN PAYS GAS)
+	// Step 7: Admin broadcasts burn with permit (ADMIN PAYS GAS)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("Step 7: Admin broadcasts transfer (ADMIN PAYS ALL GAS)")
+	fmt.Println("Step 7: Admin broadcasts burn (ADMIN PAYS ALL GAS)")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	fmt.Println("Admin executes transferWithPermit():")
-	fmt.Printf("   From:             %s\n", userAcc.GetEVMAddress().Hex())
-	fmt.Printf("   To:               %s\n", recipientAddress)
+	fmt.Println("Admin executes burnWithPermit():")
+	fmt.Printf("   Owner:            %s\n", userAcc.GetEVMAddress().Hex())
 	fmt.Printf("   Token ID:         %d\n", tokenId)
 	fmt.Printf("   Gas Payer:        %s (Admin)\n", adminAcc.GetEVMAddress().Hex())
 	fmt.Println()
 
-	fmt.Println("Broadcasting transaction...")
-	transferTx, err := adminEvmClient.TransferWithPermit(
+	fmt.Println("Broadcasting burn transaction...")
+	burnTx, err := adminEvmClient.BurnWithPermit(
 		contractAddr,
-		userAcc.GetEVMAddress(), // From
-		recipientAddr,           // To
+		userAcc.GetEVMAddress(), // From (owner)
 		big.NewInt(int64(tokenId)),
 		permitSig,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to execute transfer with permit: %v", err))
+		panic(fmt.Sprintf("Failed to execute burn with permit: %v", err))
 	}
 
-	fmt.Printf("   Transaction Hash: %s\n", transferTx.Hash().Hex())
-	fmt.Printf("   Nonce: %d\n", transferTx.Nonce())
+	fmt.Printf("   Transaction Hash: %s\n", burnTx.Hash().Hex())
+	fmt.Printf("   Nonce: %d\n", burnTx.Nonce())
 	fmt.Println("   Waiting for confirmation...")
 
-	receipt, err := client.WaitForEVMTransaction(transferTx.Hash())
+	receipt, err := client.WaitForEVMTransaction(burnTx.Hash())
 	if err != nil {
-		panic(fmt.Sprintf("Error waiting for transfer: %v", err))
+		panic(fmt.Sprintf("Error waiting for burn: %v", err))
 	}
 
-	fmt.Println("✓ Transfer completed!")
+	fmt.Println("✓ Burn completed!")
 	fmt.Println()
 
-	// Step 8: Verify new ownership
+	// Step 8: Verify NFT was burned (owner should be zero address)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("Step 8: Verifying new ownership")
+	fmt.Println("Step 8: Verifying NFT was burned")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	newOwner := adminEvmClient.TokenOwner(contractAddr, tokenId)
-	fmt.Printf("New owner:    %s\n", newOwner.Hex())
-	fmt.Printf("Expected:     %s\n", recipientAddress)
+	burnedOwner := adminEvmClient.TokenOwner(contractAddr, tokenId)
+	zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
-	if newOwner.Hex() != recipientAddr.Hex() {
-		panic("Ownership verification failed!")
+	fmt.Printf("Owner after burn: %s\n", burnedOwner.Hex())
+	fmt.Printf("Zero address:     %s\n", zeroAddress.Hex())
+
+	if burnedOwner == zeroAddress {
+		fmt.Println("✓ NFT successfully burned (owner is zero address)")
+	} else {
+		panic(fmt.Sprintf("Burn verification failed! Owner is still: %s", burnedOwner.Hex()))
 	}
-	fmt.Println("✓ NFT successfully transferred to recipient")
 	fmt.Println()
 
 	// Display summary
 	fmt.Println("╔════════════════════════════════════════════════════════════╗")
-	fmt.Println("║              GASLESS TRANSFER SUMMARY                      ║")
+	fmt.Println("║                GASLESS BURN SUMMARY                        ║")
 	fmt.Println("╚════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 	fmt.Printf("Contract Address:      %s\n", contractAddress)
@@ -274,14 +270,15 @@ func main() {
 	fmt.Printf("Original Owner (User): %s\n", userAcc.GetEVMAddress().Hex())
 	fmt.Printf("   Gas Paid:           0 🎉 (completely free!)\n")
 	fmt.Println()
-	fmt.Printf("New Owner (Recipient): %s\n", newOwner.Hex())
+	fmt.Printf("Final Owner:           %s\n", burnedOwner.Hex())
+	fmt.Printf("   Status:             BURNED ♨️\n")
 	fmt.Println()
 	fmt.Printf("Gas Payer (Admin):     %s\n", adminAcc.GetEVMAddress().Hex())
 	fmt.Printf("   Gas Used:           %d\n", receipt.GasUsed)
 	fmt.Println()
-	fmt.Printf("Transaction Hash:      %s\n", transferTx.Hash().Hex())
+	fmt.Printf("Transaction Hash:      %s\n", burnTx.Hash().Hex())
 	fmt.Printf("Block Number:          %d\n", receipt.BlockNumber)
-	fmt.Printf("Method:                transferWithPermit (EIP-2612)\n")
+	fmt.Printf("Method:                burnWithPermit (EIP-2612)\n")
 	fmt.Println()
 	fmt.Println("────────────────────────────────────────────────────────────")
 	fmt.Println()
@@ -290,17 +287,18 @@ func main() {
 	fmt.Println("📚 What just happened:")
 	fmt.Println()
 	fmt.Println("1. User signed an EIP-712 permit message offline (no gas)")
-	fmt.Println("2. Admin broadcasted the transfer using the permit")
+	fmt.Println("2. Admin broadcasted the burn using the permit")
 	fmt.Println("3. Admin paid ALL gas fees (user paid nothing!)")
-	fmt.Println("4. NFT ownership transferred successfully")
+	fmt.Println("4. NFT permanently burned (owner = zero address)")
 	fmt.Println()
 	fmt.Println("🎯 Use Cases:")
 	fmt.Println()
-	fmt.Println("• Onboard new users without requiring them to buy tokens")
-	fmt.Println("• Build gasless dApps where platform covers transaction costs")
-	fmt.Println("• Implement relayer services for better UX")
-	fmt.Println("• Enable meta-transactions for seamless user experience")
-	fmt.Println("• Allow users to interact with blockchain without gas")
+	fmt.Println("• Certificate revocation without user paying gas")
+	fmt.Println("• Token cleanup services (burn expired certificates)")
+	fmt.Println("• Eco-friendly NFT destruction (no gas barrier)")
+	fmt.Println("• Platform-managed token lifecycle")
+	fmt.Println("• Gasless dApps where platform handles all costs")
+	fmt.Println("• Compliance: revoke certificates without user friction")
 	fmt.Println()
 	fmt.Println("💡 Technical Details:")
 	fmt.Println()
@@ -308,10 +306,18 @@ func main() {
 	fmt.Println("• Signature: EIP-712 structured data signing")
 	fmt.Println("• Security: Includes deadline and nonce to prevent replay attacks")
 	fmt.Println("• Flexibility: User signs offline, anyone can broadcast")
+	fmt.Println("• Verification: Owner becomes zero address after burn")
+	fmt.Println()
+	fmt.Println("🔥 Burn vs Transfer:")
+	fmt.Println()
+	fmt.Println("• Burn: Permanently destroys the NFT (irreversible)")
+	fmt.Println("• Transfer: Changes ownership to another address (reversible)")
+	fmt.Println("• Both support gasless operations via EIP-2612 permits")
 	fmt.Println()
 	fmt.Println("Next steps:")
-	fmt.Println("  • Try gasless burning (13_gasless_burn.go)")
+	fmt.Println("  • Compare with direct burn (user pays gas)")
 	fmt.Println("  • Implement your own relayer service")
-	fmt.Println("  • Build a gasless dApp for your users")
+	fmt.Println("  • Build gasless certificate management system")
+	fmt.Println("  • Try gasless transfer (07_1_gasless_transfer.go)")
 	fmt.Println()
 }

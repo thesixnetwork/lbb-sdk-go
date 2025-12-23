@@ -48,15 +48,7 @@ func main() {
 	// Step 2: Initialize client (fivenet = testnet)
 	fmt.Println("Step 2: Connecting to network...")
 	ctx := context.Background()
-	// client, err := client.NewClient(ctx, false)
-	client, err := client.NewCustomClient(
-		ctx,
-		"http://localhost:26657",
-		"http://localhost:1317",
-		"http://localhost:8545",
-		"testnet",
-	)
-
+	client, err := client.NewClient(ctx, false) // false = testnet (fivenet)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create client: %v", err))
 	}
@@ -96,7 +88,7 @@ func main() {
 	}
 
 	msgCreateMetadataWithInfo, err := meta.BuildMintMetadataWithInfoMsg("2", metadata.CertificateInfo{
-		Status:       "TCI",
+		Status:       metadata.CertStatusType_ACTIVE,
 		GoldStandard: "LBI",
 		Weight:       "2000g",
 		CertNumber:   "LBB_V1_01",

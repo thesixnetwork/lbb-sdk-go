@@ -14,12 +14,15 @@ Step-by-step examples that teach you each function:
 4. **[04_mint_metadata.go](./04_mint_metadata.go)** - Mint certificate metadata
 5. **[05_deploy_contract.go](./05_deploy_contract.go)** - Deploy EVM NFT contract
 6. **[06_mint_nft.go](./06_mint_nft.go)** - Mint certificate NFT
-7. **[07_transfer_nft.go](./07_transfer_nft.go)** - Transfer NFT to another address
-8. **[08_freeze_metadata.go](./08_freeze_metadata.go)** - Freeze and unfreeze metadata
-9. **[09_query_nft.go](./09_query_nft.go)** - Query NFT information
-10. **[10_balance_operations.go](./10_balance_operations.go)** - Query and transfer balances
-11. **[11_query_metadata.go](./11_query_metadata.go)** - Query schema and certificate metadata
-12. **[12_query_evm.go](./12_query_evm.go)** - Query EVM information (gas, nonce, ownership)
+7. **[07_0_transfer_nft.go](./07_0_transfer_nft.go)** - Transfer NFT to another address
+8. **[07_1_gasless_transfer.go](./07_1_gasless_transfer.go)** - Gasless NFT transfer using EIP-2612 permit
+9. **[08_freeze_metadata.go](./08_freeze_metadata.go)** - Freeze and unfreeze metadata
+10. **[09_query_nft.go](./09_query_nft.go)** - Query NFT information
+11. **[10_balance_operations.go](./10_balance_operations.go)** - Query and transfer balances
+12. **[11_query_metadata.go](./11_query_metadata.go)** - Query schema and certificate metadata
+13. **[12_query_evm.go](./12_query_evm.go)** - Query EVM information (gas, nonce, ownership)
+14. **[13_0_burn_nft.go](./13_0_burn_nft.go)** - Burn NFT (permanently destroy)
+15. **[13_1_gasless_burn.go](./13_1_gasless_burn.go)** - Gasless NFT burning using EIP-2612 permit
 
 ### Full Example
 
@@ -27,6 +30,7 @@ Step-by-step examples that teach you each function:
 
 ### Documentation
 - **This README** - Overview and quick start
+- **[GASLESS_OPERATIONS.md](./GASLESS_OPERATIONS.md)** - Complete guide to gasless transfers and burns
 
 ## Quick Start
 
@@ -40,6 +44,11 @@ go run 02_create_account.go
 go run 03_deploy_schema.go
 go run 04_mint_metadata.go
 go run 05_deploy_contract.go
+go run 06_mint_nft.go
+go run 07_0_transfer_nft.go      # Standard transfer
+go run 07_1_gasless_transfer.go  # Gasless transfer
+go run 13_0_burn_nft.go           # Standard burn
+go run 13_1_gasless_burn.go         # Gasless burn
 # ... and so on
 ```
 
@@ -64,6 +73,7 @@ After running deployment scripts, update these values in subsequent scripts:
 - **[Tutorial Guide](../docs/TUTORIAL.md)** - Comprehensive step-by-step tutorial
 - **[Workflow Architecture](../docs/WORKFLOW_ARCHITECTURE.md)** - Understanding dual-layer architecture and parallel execution
 - **[Root README](../readme.md)** - Main SDK documentation and quick reference
+- **[Gasless Operations Guide](./GASLESS_OPERATIONS.md)** - Detailed guide on EIP-2612 permits for gasless transactions
 
 ## This example covers with
 
@@ -298,6 +308,110 @@ if err != nil {
 fmt.Printf("Certificate unfrozen, tx: %s\n", res.TxHash)
 ```
 
+### NFT Operations (Burn)
+
+Burn NFTs directly or gaslessly using EIP-2612 permits:
+
+#### Standard Burn (User Pays Gas)
+
+```go
+evmClient := evm.NewEVMClient(*acc)
+
+// Burn an NFT you own
+tx, err := evmClient.BurnCertificateNFT(contractAddress, tokenId)
+if err != nil {
+    panic(fmt.Sprintf("Failed to burn NFT: %v", err))
+}
+
+// Wait for confirmation
+_, err = client.WaitForEVMTransaction(tx.Hash())
+if err != nil {
+    panic(fmt.Sprintf("Burn failed: %v", err))
+}
+
+// Verify burn (owner should be zero address)
+owner := evmClient.TokenOwner(contractAddress, tokenId)
+zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
+if owner == zeroAddress {
+    fmt.Println("NFT successfully burned!")
+}
+```
+
+#### Gasless Burn (Admin Pays Gas)
+
+```go
+// User signs permit offline (NO GAS!)
+userEvmClient := evm.NewEVMClient(*userAcc)
+deadline := big.NewInt(time.Now().Unix() + 3600)
+
+permitSig, err := userEvmClient.SignPermit(
+    contractName,
+    contractAddress,
+    adminAddress,              // Spender (who will execute burn)
+    big.NewInt(int64(tokenId)),
+    deadline,
+)
+
+// Admin broadcasts burn (PAYS ALL GAS)
+adminEvmClient := evm.NewEVMClient(*adminAcc)
+tx, err := adminEvmClient.BurnWithPermit(
+    contractAddress,
+    userAddress,               // From (owner)
+    big.NewInt(int64(tokenId)),
+    permitSig,
+)
+
+// Wait for confirmation
+_, err = client.WaitForEVMTransaction(tx.Hash())
+// User paid ZERO gas! 🎉
+```
+
+### Comparison: Standard vs Gasless Operations
+
+| Feature | Standard Operation | Gasless Operation |
+|---------|-------------------|-------------------|
+| **User Gas Cost** | User pays gas fees | User pays ZERO ✅ |
+| **Admin Gas Cost** | N/A | Admin pays all gas |
+| **User Blockchain Interaction** | Direct transaction | Just signs message offline |
+| **User Token Balance Required** | Yes (for gas) | No! Can be 0 |
+| **Speed** | Immediate | Depends on relayer |
+| **Use Case** | User has tokens | User has no tokens |
+| **Implementation** | `Transfer()` / `Burn()` | `TransferWithPermit()` / `BurnWithPermit()` |
+| **Security** | Transaction signature | EIP-712 permit signature |
+| **Revocability** | Cannot cancel once sent | Can expire (deadline) |
+
+### Gasless Transfers (EIP-2612 Permit)
+
+Enable gasless NFT transfers where users don't pay gas fees:
+
+```go
+// User signs permit offline (NO GAS!)
+userEvmClient := evm.NewEVMClient(*userAcc)
+deadline := big.NewInt(time.Now().Unix() + 3600)
+
+permitSig, err := userEvmClient.SignPermit(
+    contractName,
+    contractAddress,
+    adminAddress,              // Spender (who will execute transfer)
+    big.NewInt(int64(tokenId)),
+    deadline,
+)
+
+// Admin broadcasts transfer (PAYS ALL GAS)
+adminEvmClient := evm.NewEVMClient(*adminAcc)
+tx, err := adminEvmClient.TransferWithPermit(
+    contractAddress,
+    userAddress,               // From
+    recipientAddress,          // To
+    big.NewInt(int64(tokenId)),
+    permitSig,
+)
+
+// Wait for confirmation
+_, err = client.WaitForEVMTransaction(tx.Hash())
+// User paid ZERO gas! 🎉
+```
+
 ## Procedures
 
 1. **Start with numbered examples** - They build on each other
@@ -344,8 +458,24 @@ go run 06_mint_nft.go
 
 ### Transfer NFT
 ```bash
+# Standard transfer (user pays gas)
 # Update contractAddress and recipientAddress
-go run 07_transfer_nft.go
+go run 07_0_transfer_nft.go
+
+# Gasless transfer (admin pays gas)
+# Update contractAddress and contractName
+go run 07_1_gasless_transfer.go
+```
+
+### Burn NFT
+```bash
+# Standard burn (user pays gas)
+# Update contractAddress
+go run 13_0_burn_nft.go
+
+# Gasless burn (admin pays gas)
+# Update contractAddress and contractName
+go run 13_1_gasless_burn.go
 ```
 
 ### Freeze/Unfreeze
@@ -500,16 +630,21 @@ The SDK supports simultaneous transactions on both Cosmos and EVM layers:
 03. Deploy Schema        05. Deploy NFT Contract    10. Balance Operations
     (Cosmos layer)           (EVM layer)                (Query & Transfer)
     ↓                             ↓
+↓
 04. Mint Metadata         06. Mint NFT
-    (Cosmos layer)           (EVM layer)
-    ↓                             ↓
+(Cosmos layer)           (EVM layer)
+↓                             ↓
 08. Freeze/Unfreeze       07. Transfer NFT
-    Metadata (Optional)      (Optional)
-    ↓                             ↓
-11. Query Metadata        09. Query NFT Information
-    & Schema                  ↓
-    ↓                     12. Query EVM Information
-    └─────────────────────────────┘
+Metadata (Optional)      • 07_0: Standard (user pays)
+↓                        • 07_1: Gasless (admin pays)
+↓                             ↓
+11. Query Metadata        13. Burn NFT (Optional)
+& Schema                 • 13_0: Standard (user pays)
+↓                        • 13_1: Gasless (admin pays)
+↓                             ↓
+└─────────→ 09. Query NFT Information
+                ↓
+            12. Query EVM Information
 
 Note: Steps 03 and 05 can be executed simultaneously
       (separate Cosmos and EVM layers)
@@ -519,10 +654,13 @@ Note: Steps 03 and 05 can be executed simultaneously
 
 Use these examples to build:
 - **Certificate Management System**: Issue, verify, and manage certificates
+- **Gasless dApps**: Build user-friendly apps where users don't pay gas
 - **Supply Chain Tracking**: Track products with certificate NFTs
 - **Credential Verification**: Issue and verify educational or professional credentials
 - **Digital Asset Registry**: Maintain a registry of authenticated assets
 - **Compliance Systems**: Automate compliance certificate management
+- **Certificate Revocation**: Gasless burning for expired/invalid certificates
+- **Relayer Services**: Meta-transaction platforms using EIP-2612 permits
 
 ### Development Tips
 

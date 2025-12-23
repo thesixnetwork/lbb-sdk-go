@@ -83,7 +83,7 @@ func main() {
 	// BuildMintMetadataMsg creates a new metadata instance
 	// Parameter: token ID for this metadata instance (must be unique)
 	msgMintMetadata, err := meta.BuildMintMetadataWithInfoMsg(tokenId, metadata.CertificateInfo{
-		Status:       "TCI",
+		Status:       metadata.CertStatusType_ACTIVE,
 		GoldStandard: "LBI",
 		Weight:       "2000g",
 		CertNumber:   "LBB_V1_01",
