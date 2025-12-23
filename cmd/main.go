@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
 
 	_ "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -276,17 +278,17 @@ func main() {
 	fmt.Println("SUCCESS: NFT transferred successfully")
 	fmt.Println("========================================")
 
-	// Step 8.1: Meta-transaction (gasless transfer)
+	// Step 8.1: EIP-2612 Permit (gasless transfer)
 	fmt.Println("\n========================================")
-	fmt.Println("[Step 8.1] Gasless Transfer Demo")
+	fmt.Println("[Step 8.1] Gasless Transfer Demo (EIP-2612 Permit)")
 	fmt.Println("Admin pays gas for user's NFT transfer")
 	fmt.Println("========================================")
 
 	fmt.Println("\nProcess Overview:")
-	fmt.Println("  1. Create new user account")
+	fmt.Println("  1. Create new user account (no funds needed!)")
 	fmt.Println("  2. Mint NFT to new user")
-	fmt.Println("  3. User signs transfer offline (no gas)")
-	fmt.Println("  4. Admin broadcasts signed transaction")
+	fmt.Println("  3. User signs EIP-712 permit message offline (no gas, no blockchain interaction)")
+	fmt.Println("  4. Admin broadcasts transfer with permit (admin pays all gas)")
 	fmt.Println()
 
 	// Step 8.1.1: Create new account
@@ -298,7 +300,8 @@ func main() {
 	}
 	fmt.Println("└─ SUCCESS: Account created")
 	fmt.Printf("      Name: new_gen\n")
-	fmt.Printf("      Address: %s\n\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Printf("      Address: %s\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Printf("      Balance: 0 (no funds needed!)\n\n")
 
 	// Step 8.1.2: Mint NFT to new account
 	fmt.Printf("┌─ [Step 8.1.2] Minting NFT #%d to new account\n", tokenID+2)
@@ -318,43 +321,64 @@ func main() {
 	}
 	fmt.Printf("└─ SUCCESS: NFT #%d minted to new user\n\n", tokenID+2)
 
-	// Step 8.1.3: User signs transaction offline
-	fmt.Println("┌─ [Step 8.1.3] User signs transfer offline (no gas required)")
+	// Step 8.1.3: User signs EIP-712 permit offline
+	fmt.Println("┌─ [Step 8.1.3] User signs EIP-712 permit message (completely offline)")
 	offlineEVMClient := evm.NewEVMClient(*accFromGenMnemonic)
 
-	fmt.Printf("   Signing transfer of NFT #%d\n", tokenID+2)
-	fmt.Printf("   Destination: %s\n", ChalieEVMAddress)
-	signedTx, err := offlineEVMClient.SignTransferNFT(contractAddress, common.HexToAddress(ChalieEVMAddress), tokenID+2)
+	fmt.Printf("   User signs permit for NFT #%d transfer\n", tokenID+2)
+	fmt.Printf("   From (User): %s\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Printf("   To (Charlie): %s\n", ChalieEVMAddress)
+	fmt.Println("   NOTE: This is just a signature, NO transaction, NO gas needed!")
+
+	// Set deadline to 1 hour from now (Unix timestamp)
+	deadline := big.NewInt(time.Now().Unix() + 3600)
+	permitSig, err := offlineEVMClient.SignPermit(
+		contractName,
+		contractAddress,
+		acc.GetEVMAddress(), // Spender (admin/relay)
+		big.NewInt(int64(tokenID+2)),
+		deadline,
+	)
 	if err != nil {
-		fmt.Printf("   ERROR: Failed to sign offline transaction: %v\n", err)
+		fmt.Printf("   ERROR: Failed to sign permit: %v\n", err)
 		return
 	}
-	fmt.Println("└─ SUCCESS: Transaction signed by user")
+	fmt.Println("└─ SUCCESS: Permit signed offline (user never touched blockchain!)")
 	fmt.Println()
 
-	// Step 8.1.4: Admin broadcasts transaction
-	fmt.Println("┌─ [Step 8.1.4] Admin broadcasts signed transaction")
-	fmt.Println("   NOTE: Admin pays for gas")
-	err = evmClient.SendTransaction(signedTx)
+	// Step 8.1.4: Admin broadcasts transfer with permit
+	fmt.Println("┌─ [Step 8.1.4] Admin broadcasts transfer using user's permit")
+	fmt.Println("   NOTE: Admin pays ALL gas, user pays NOTHING")
+	fmt.Printf("   Transferring NFT #%d with permit\n", tokenID+2)
+
+	transferTx, err := evmClient.TransferWithPermit(
+		contractAddress,
+		accFromGenMnemonic.GetEVMAddress(),    // From
+		common.HexToAddress(ChalieEVMAddress), // To
+		big.NewInt(int64(tokenID+2)),
+		permitSig,
+	)
 	if err != nil {
-		fmt.Printf("   ERROR: Failed to send transaction: %v\n", err)
+		fmt.Printf("   ERROR: Failed to execute transfer with permit: %v\n", err)
 		return
 	}
 
-	fmt.Println("   Waiting for transaction confirmation...")
-	_, err = client.WaitForEVMTransaction(signedTx.Hash())
+	fmt.Printf("   Transaction Hash: %s\n", transferTx.Hash().Hex())
+	fmt.Println("   Waiting for confirmation...")
+	_, err = client.WaitForEVMTransaction(transferTx.Hash())
 	if err != nil {
 		fmt.Printf("   ERROR: Error waiting for transfer: %v\n", err)
 		return
 	}
 
-	fmt.Println("└─ SUCCESS: Gasless transfer completed successfully")
+	fmt.Println("└─ SUCCESS: Gasless transfer completed!")
 	fmt.Printf("\n   Transfer Summary:\n")
 	fmt.Printf("      NFT #%d transferred\n", tokenID+2)
-	fmt.Printf("      From (User): %s\n", accFromGenMnemonic.GetEVMAddress().Hex())
-	fmt.Printf("      To (Charlie): %s\n", ChalieEVMAddress)
+	fmt.Printf("      Owner (User): %s (paid 0 gas! 🎉)\n", accFromGenMnemonic.GetEVMAddress().Hex())
+	fmt.Printf("      Destination: %s\n", ChalieEVMAddress)
 	fmt.Printf("      Gas paid by: Admin (%s)\n", acc.GetEVMAddress().Hex())
-	fmt.Printf("      Transaction Hash: %s\n", signedTx.Hash().Hex())
+	fmt.Printf("      Transaction Hash: %s\n", transferTx.Hash().Hex())
+	fmt.Printf("      Method: EIP-2612 Permit (transferWithPermit)\n")
 	fmt.Println("========================================")
 
 	// Step 9: Verify ownership

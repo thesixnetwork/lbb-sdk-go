@@ -73,13 +73,145 @@ func (e *EVMClient) SignTransferNFT(contractAddress common.Address, destAddress 
 func (e *EVMClient) SendTransaction(signedTx *types.Transaction) error {
 	goCtx := e.GetClient().GetContext()
 	ethClient := e.GetClient().GetETHClient()
-	fmt.Printf("Sender: %v\n", e.GetEVMAddress())
-	err := ethClient.SendTransaction(goCtx, signedTx)
+
+	// Extract the actual sender from the transaction signature
+	chainID, err := e.ChainID()
+	if err != nil {
+		return fmt.Errorf("failed to get chain ID: %w", err)
+	}
+
+	signer := types.NewEIP155Signer(chainID)
+	sender, err := types.Sender(signer, signedTx)
+	if err != nil {
+		return fmt.Errorf("failed to extract sender from transaction: %w", err)
+	}
+
+	fmt.Printf("Transaction Sender (from signature): %v\n", sender.Hex())
+	fmt.Printf("Broadcaster Address: %v\n", e.GetEVMAddress())
+
+	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// SignApprovalTransaction signs a transaction to approve an operator (relay/admin)
+// This allows the operator to transfer NFTs on behalf of the user
+// User signs this offline without needing gas
+func (e *EVMClient) SignApprovalTransaction(contractAddress common.Address, operatorAddress common.Address, approved bool) (*types.Transaction, error) {
+	stringABI, err := assets.GetContractABIString()
+	if err != nil {
+		return nil, err
+	}
+
+	contractABI, err := abi.JSON(strings.NewReader(stringABI))
+	if err != nil {
+		return nil, err
+	}
+
+	// Pack the setApprovalForAll function call
+	data, err := contractABI.Pack("setApprovalForAll", operatorAddress, approved)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack approval data: %w", err)
+	}
+
+	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
+		To:   &contractAddress,
+		Data: data,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	nonce, err := e.GetNonce()
+	if err != nil {
+		return nil, err
+	}
+
+	gasPrice, err := e.GasPrice()
+	if err != nil {
+		return nil, err
+	}
+
+	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), gasLimit, gasPrice, data)
+
+	chainID, err := e.ChainID()
+	if err != nil {
+		return nil, err
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), e.GetPrivateKey())
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+}
+
+// TransferNFTOnBehalf transfers an NFT on behalf of another user
+// The admin/relay must be approved as an operator by the owner first
+// Admin signs and pays for this transaction
+func (e *EVMClient) TransferNFTOnBehalf(contractAddress common.Address, fromAddress common.Address, toAddress common.Address, tokenID uint64) (*types.Transaction, error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	stringABI, err := assets.GetContractABIString()
+	if err != nil {
+		return nil, err
+	}
+
+	contractABI, err := abi.JSON(strings.NewReader(stringABI))
+	if err != nil {
+		return nil, err
+	}
+
+	// Pack the safeTransferFrom function call
+	// Admin calls this, but specifies fromAddress (the actual owner)
+	data, err := contractABI.Pack("safeTransferFrom", fromAddress, toAddress, big.NewInt(int64(tokenID)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack transfer data: %w", err)
+	}
+
+	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
+		To:   &contractAddress,
+		Data: data,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	nonce, err := e.GetNonce()
+	if err != nil {
+		return nil, err
+	}
+
+	gasPrice, err := e.GasPrice()
+	if err != nil {
+		return nil, err
+	}
+
+	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), gasLimit, gasPrice, data)
+
+	chainID, err := e.ChainID()
+	if err != nil {
+		return nil, err
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), e.GetPrivateKey())
+	if err != nil {
+		return nil, err
+	}
+
+	err = ethClient.SendTransaction(goCtx, signedTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
 }
 
 func (e *EVMClient) DeployCertificateContract(contractName, symbol, nftSchemaCode string) (common.Address, *types.Transaction, error) {
