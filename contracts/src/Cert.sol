@@ -216,6 +216,19 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
         safeTransferFrom(from, to, tokenId);
     }
 
+    function burnWithPermit(
+        address from,
+        uint256 tokenId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        permit(from, msg.sender, tokenId, deadline, v, r, s);
+
+        burn(tokenId);
+    }
+
     // ============ End of Permit Functions ============
 
     // The following functions are overrides required by Solidity.

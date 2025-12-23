@@ -414,3 +414,72 @@ func (e *EVMClient) TransferWithPermit(
 
 	return signedTx, nil
 }
+
+func (e *EVMClient) BurnWithPermit(
+	contractAddress common.Address,
+	from common.Address,
+	tokenID *big.Int,
+	signature *PermitSignature,
+) (*types.Transaction, error) {
+	goCtx := e.GetClient().GetContext()
+	ethClient := e.GetClient().GetETHClient()
+
+	// Get contract ABI
+	stringABI, err := assets.GetContractABIString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract ABI: %w", err)
+	}
+
+	contractABI, err := abi.JSON(strings.NewReader(stringABI))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
+	}
+
+	// Pack the transferWithPermit function call
+	data, err := contractABI.Pack("burnWithPermit", from, tokenID, signature.Deadline, signature.V, signature.R, signature.S)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack transferWithPermit: %w", err)
+	}
+
+	// Estimate gas
+	gasLimit, err := e.GasLimit(ethereum.CallMsg{
+		From: e.GetEVMAddress(),
+		To:   &contractAddress,
+		Data: data,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+
+	nonce, err := e.GetNonce()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
+	}
+
+	gasPrice, err := e.GasPrice()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gas price: %w", err)
+	}
+
+	// Create transaction
+	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), gasLimit, gasPrice, data)
+
+	chainID, err := e.ChainID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain ID: %w", err)
+	}
+
+	// Sign with broadcaster's key (they pay for gas)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), e.GetPrivateKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign transaction: %w", err)
+	}
+
+	// Broadcast
+	err = ethClient.SendTransaction(goCtx, signedTx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send transaction: %w", err)
+	}
+
+	return signedTx, nil
+}

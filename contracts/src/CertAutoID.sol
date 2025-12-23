@@ -15,14 +15,13 @@ error InvalidSignature();
 error SignatureExpired();
 error InvalidSigner();
 
-contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable , Ownable, EIP712 {
+contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
     using Strings for uint256;
     string private _baseTokenURI;
     uint256 private _nextTokenId;
 
     // Nonces for permit
     mapping(address => uint256) private _nonces;
-
 
     // EIP-712 Type Hashes
     bytes32 private constant PERMIT_TYPEHASH =
@@ -47,7 +46,6 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable , Ownable, EIP712 {
         address indexed operator,
         bool approved
     );
-
 
     constructor(
         string memory name,
@@ -77,7 +75,7 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable , Ownable, EIP712 {
     function setBaseURI(string calldata baseURI) external onlyOwner {
         _baseTokenURI = baseURI;
     }
-    
+
     function tokenURI(
         uint256 tokenId
     ) public view virtual override returns (string memory) {
@@ -90,7 +88,7 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable , Ownable, EIP712 {
                 : "";
     }
 
-      // ============ EIP-2612 Style Permit Functions ============
+    // ============ EIP-2612 Style Permit Functions ============
 
     /**
      * @dev Returns the current nonce for `owner`. This value must be included in the signature.
@@ -224,6 +222,19 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable , Ownable, EIP712 {
 
         // Then transfer the token
         safeTransferFrom(from, to, tokenId);
+    }
+
+    function burnWithPermit(
+        address from,
+        uint256 tokenId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        permit(from, msg.sender, tokenId, deadline, v, r, s);
+
+        burn(tokenId);
     }
 
     // ============ End of Permit Functions ============
