@@ -96,7 +96,7 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
         return _domainSeparatorV4();
     }
 
-    /**
+    /*
      * @dev Permit approval for a specific token using EIP-712 signature
      * @param owner The owner of the token
      * @param spender The address to approve
@@ -198,7 +198,7 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
         _nonces[owner] = currentNonce + 1;
     }
 
-    /**
+    /*
      * @dev Transfer token using permit signature (gasless transfer)
      * @param from The current owner
      * @param to The recipient

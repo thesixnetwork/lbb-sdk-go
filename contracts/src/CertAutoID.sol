@@ -127,13 +127,15 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
             revert SignatureExpired();
         }
 
+        uint256 currentNonce = _nonces[owner];
+
         bytes32 structHash = keccak256(
             abi.encode(
                 PERMIT_TYPEHASH,
                 owner,
                 spender,
                 tokenId,
-                _nonces[owner]++,
+                currentNonce,
                 deadline
             )
         );
@@ -151,9 +153,11 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
 
         _approve(spender, tokenId, owner);
         emit PermitUsed(owner, spender, tokenId);
+
+        _nonces[owner] = currentNonce + 1;
     }
 
-    /**
+    /*
      * @dev Permit approval for all tokens using EIP-712 signature (setApprovalForAll)
      * @param owner The owner granting approval
      * @param operator The operator to approve/revoke
@@ -176,13 +180,15 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
             revert SignatureExpired();
         }
 
+        uint256 currentNonce = _nonces[owner];
+
         bytes32 structHash = keccak256(
             abi.encode(
                 PERMIT_FOR_ALL_TYPEHASH,
                 owner,
                 operator,
                 approved,
-                _nonces[owner]++,
+                currentNonce,
                 deadline
             )
         );
@@ -196,9 +202,11 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
 
         _setApprovalForAll(owner, operator, approved);
         emit PermitForAllUsed(owner, operator, approved);
+
+        _nonces[owner] = currentNonce + 1;
     }
 
-    /**
+    /*
      * @dev Transfer token using permit signature (gasless transfer)
      * @param from The current owner
      * @param to The recipient
@@ -217,6 +225,13 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
         bytes32 r,
         bytes32 s
     ) public {
+        if (to == address(0)) {
+            revert("Invalid recipient");
+        }
+
+        if (ownerOf(tokenId) != from) {
+            revert("Invalid owner");
+        }
         // First, validate the permit and approve msg.sender
         permit(from, msg.sender, tokenId, deadline, v, r, s);
 
@@ -232,6 +247,10 @@ contract LBBCert is ERC721, ERC721Enumerable, ERC721Burnable, Ownable, EIP712 {
         bytes32 r,
         bytes32 s
     ) public {
+        if (ownerOf(tokenId) != from) {
+            revert("Invalid owner");
+        }
+
         permit(from, msg.sender, tokenId, deadline, v, r, s);
 
         burn(tokenId);

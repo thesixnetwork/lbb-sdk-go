@@ -28,10 +28,14 @@ type AccountI interface {
 }
 
 // Account represents a blockchain account with both Cosmos and EVM capabilities
+//
+// SECURITY NOTE: This struct stores the private key in memory. For production use:
+//   - Call Close() when done to zeroize sensitive data
+//   - Consider using encrypted keystores or HSM for high-value accounts
+//   - Never log or expose the Account object
 type Account struct {
 	client        client.ClientI
 	auth          *bind.TransactOpts
-	mnemonic      string
 	privateKey    *ecdsa.PrivateKey
 	evmAddress    common.Address
 	cosmosAddress sdk.AccAddress
@@ -42,6 +46,13 @@ var _ AccountI = (*Account)(nil)
 
 // NewAccount creates a new Account instance from a mnemonic and password
 // Returns an error if any step in the account creation process fails
+//
+// SECURITY WARNING: The mnemonic is used to derive keys but is NOT stored in the Account.
+// You must securely store the mnemonic yourself if you need account recovery.
+// Best practices:
+//   - Display mnemonic ONCE during account creation for user backup
+//   - Never log, transmit, or store the mnemonic in plaintext
+//   - Use hardware wallets or encrypted keystores in production
 func NewAccount(ctx client.ClientI, accountName, mnemonic, password string) (*Account, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("client cannot be nil")
@@ -90,7 +101,6 @@ func NewAccount(ctx client.ClientI, accountName, mnemonic, password string) (*Ac
 		client:        ctx,
 		auth:          authz,
 		privateKey:    privateKey,
-		mnemonic:      mnemonic,
 		evmAddress:    evmAddress,
 		cosmosAddress: cosmosAddress,
 		accountName:   accountName,
@@ -127,10 +137,33 @@ func (a *Account) GetClient() client.ClientI {
 	return a.client
 }
 
-// GetMnemonic returns the mnemonic phrase (use with caution)
-// This should only be used for backup purposes and the result should be kept secure
-func (a *Account) GetMnemonic() string {
-	return a.mnemonic
+// Close securely cleans up the account by zeroizing sensitive data in memory
+// This should be called when the account is no longer needed to minimize exposure
+//
+// Example usage:
+//
+//	account, err := NewAccount(...)
+//	if err != nil {
+//	    return err
+//	}
+//	defer account.Close()  // Ensure cleanup
+//
+// Note: After calling Close(), the account should not be used for any operations
+func (a *Account) Close() error {
+	// Zeroize private key
+	if a.privateKey != nil && a.privateKey.D != nil {
+		// Zero out the private key bytes
+		key := a.privateKey.D.Bytes()
+		for i := range key {
+			key[i] = 0
+		}
+		a.privateKey = nil
+	}
+
+	// Clear auth transaction options
+	a.auth = nil
+
+	return nil
 }
 
 // ValidateMnemonic validates a BIP39 mnemonic phrase
