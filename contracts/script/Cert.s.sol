@@ -2,86 +2,99 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import { LBBCert } from "../src/Cert.sol";
+import {LBBCert} from "../src/Cert.sol";
 
 contract DeployScript is Script {
-  address ownerAddress;
-  uint64 currentNonce;
+    address ownerAddress;
+    uint64 currentNonce;
 
-  function setUp() public {
-    ownerAddress = vm.envAddress("OWNER");
-    currentNonce = vm.getNonce(ownerAddress);
-  }
+    function setUp() public {
+        ownerAddress = vm.envAddress("OWNER");
+        currentNonce = vm.getNonce(ownerAddress);
+    }
 
-  function run() external {
-    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-    vm.startBroadcast(deployerPrivateKey);
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
 
-    LBBCert certNFT = new LBBCert("CERT", "CERTIFICATE", "https://picsum.photos/", ownerAddress);
-    nonceUp(ownerAddress);
-    address certNFTAddress = address(certNFT);
-    console.log("cert : ", certNFTAddress);
+        LBBCert certNFT = new LBBCert(
+            "CERT",
+            "CERTIFICATE",
+            "https://picsum.photos/",
+            ownerAddress
+        );
+        nonceUp(ownerAddress);
+        address certNFTAddress = address(certNFT);
+        console.log("cert : ", certNFTAddress);
 
-    certNFT.safeMint(ownerAddress, 1);
-    nonceUp(ownerAddress);
+        certNFT.safeMint(ownerAddress, 1);
+        nonceUp(ownerAddress);
 
-    vm.stopBroadcast();
-  }
+        vm.stopBroadcast();
+    }
 
-  function nonceUp(address signer) public {
-    vm.setNonce(signer, currentNonce + uint64(1));
-    currentNonce++;
-  }
+    function nonceUp(address signer) public {
+        vm.setNonce(signer, currentNonce + uint64(1));
+        currentNonce++;
+    }
 }
 
 contract MintScript is Script {
-  address ownerAddress;
-  address certAddress;
-  uint64 currentNonce;
+    address ownerAddress;
+    address certAddress;
+    uint64 currentNonce;
 
-  function setUp() public {
-    ownerAddress = vm.envAddress("OWNER");
-    currentNonce = vm.getNonce(ownerAddress);
-  }
+    function setUp() public {
+        ownerAddress = vm.envAddress("OWNER");
+        currentNonce = vm.getNonce(ownerAddress);
+    }
 
-  function run() external {
-    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-    vm.startBroadcast(deployerPrivateKey);
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
 
-    LBBCert certNFT = LBBCert(payable(certAddress));
-    certNFT.safeMint(ownerAddress, 1);
-    nonceUp(ownerAddress);
+        LBBCert certNFT = LBBCert(payable(certAddress));
+        certNFT.safeMint(ownerAddress, 1);
+        nonceUp(ownerAddress);
 
-    vm.stopBroadcast();
-  }
+        vm.stopBroadcast();
+    }
 
-  function nonceUp(address signer) public {
-    vm.setNonce(signer, currentNonce + uint64(1));
-    currentNonce++;
-  }
+    function nonceUp(address signer) public {
+        vm.setNonce(signer, currentNonce + uint64(1));
+        currentNonce++;
+    }
 }
 
 contract TransferToken is Script {
-  address contractAdrress;
-  address ownerAddress;
-  address certNFTContractAddress;
+    address contractAdrress;
+    address ownerAddress;
+    address certNFTContractAddress;
 
-  function setUp() public {
-    ownerAddress = vm.envAddress("OWNER");
-    string memory nftContractInfoPath = "./broadcast/Cert.s.sol/666/run-latest.json";
-    string memory nftContractInfo = vm.readFile(nftContractInfoPath);
-    bytes memory certNFTJsonParsed = vm.parseJson(nftContractInfo, ".transactions[0].contractAddress");
+    function setUp() public {
+        ownerAddress = vm.envAddress("OWNER");
+        string
+            memory nftContractInfoPath = "./broadcast/Cert.s.sol/666/run-latest.json";
+        string memory nftContractInfo = vm.readFile(nftContractInfoPath);
+        bytes memory certNFTJsonParsed = vm.parseJson(
+            nftContractInfo,
+            ".transactions[0].contractAddress"
+        );
 
-    certNFTContractAddress = abi.decode(certNFTJsonParsed, (address));
-  }
+        certNFTContractAddress = abi.decode(certNFTJsonParsed, (address));
+    }
 
-  function run() external {
-    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-    LBBCert certNFT = LBBCert(payable(certNFTContractAddress));
-    vm.startBroadcast(deployerPrivateKey);
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        LBBCert certNFT = LBBCert(payable(certNFTContractAddress));
+        vm.startBroadcast(deployerPrivateKey);
 
-    certNFT.transferFrom(ownerAddress, 0x3753C81072A56072840990D3D02f354Efb7425A3, 5);
+        certNFT.transferFrom(
+            ownerAddress,
+            0x3753C81072A56072840990D3D02f354Efb7425A3,
+            5
+        );
 
-    vm.stopBroadcast();
-  }
+        vm.stopBroadcast();
+    }
 }

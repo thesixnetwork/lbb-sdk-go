@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bip39 "github.com/cosmos/go-bip39"
@@ -202,4 +203,22 @@ func NewAccountFromPrivateKey(ctx client.ClientI, accountName string, privateKey
 		evmAddress:  evmAddress,
 		accountName: accountName,
 	}, nil
+}
+
+func ExportPrivateKey(account *Account) ([]byte, error) {
+	if account == nil {
+		return nil, fmt.Errorf("account cannot be nil")
+	}
+
+	return crypto.FromECDSA(account.privateKey), nil
+}
+
+func ExportPrivateKeyHex(account *Account) (string, error) {
+	if account == nil {
+		return "", fmt.Errorf("account cannot be nil")
+	}
+
+	pkBytes := crypto.FromECDSA(account.privateKey)
+	pkHex := common.Bytes2Hex(pkBytes)
+	return pkHex, nil
 }
