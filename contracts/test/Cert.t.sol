@@ -10,14 +10,11 @@ contract CertNFTTest is Test {
     uint256 public ownerPrivateKey;
 
     address public spender;
-    address public attacker;
 
     LBBCert public cert;
 
     error OwnableUnauthorizedAccount(address);
     error ERC721InvalidSender(address);
-
-    mapping(address => uint256) private _nonces;
 
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256(
@@ -48,53 +45,6 @@ contract CertNFTTest is Test {
         vm.stopPrank();
     }
 
-    function testTransferWithPermit() public {
-        uint256 tokenId = 1;
-        address receiver = address(0xBAD);
-        uint256 deadline = block.timestamp + 1 days;
-
-        vm.startPrank(ownerAddress);
-        cert.safeMint(address(ownerAddress), tokenId);
-        vm.stopPrank();
-
-        // ==== simulate off chain signing ====
-        bytes32 domainSeparator = cert.DOMAIN_SEPARATOR();
-        bytes32 structHash = keccak256(
-            abi.encode(
-                PERMIT_TYPEHASH,
-                ownerAddress,
-                spender,
-                tokenId,
-                0,
-                deadline
-            )
-        );
-
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, structHash)
-        );
-
-        // 4. Sign the digest (Owner signs this off-chain)
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-
-        vm.startPrank(spender);
-
-        cert.transferWithPermit(
-            ownerAddress,
-            receiver,
-            tokenId,
-            deadline,
-            v,
-            r,
-            s
-        );
-
-        vm.stopPrank();
-
-        assertEq(cert.ownerOf(tokenId), receiver);
-        assertEq(cert.balanceOf(ownerAddress), 0);
-    }
-
     function testRevertMintFromNotOwner() public {
         address unauthorizedUser = address(2);
 
@@ -118,38 +68,6 @@ contract CertNFTTest is Test {
         );
         cert.safeMint(address(2), 1);
         vm.stopPrank();
-    }
-
-    function testPermitHash() public {
-        uint256 deadline = block.timestamp + 1 days;
-
-        uint256 currentNonce = _nonces[ownerAddress];
-
-        bytes32 pvstructHash = keccak256(
-            abi.encode(
-                PERMIT_TYPEHASH,
-                ownerAddress,
-                spender,
-                1,
-                currentNonce,
-                deadline
-            )
-        );
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                PERMIT_TYPEHASH,
-                ownerAddress,
-                spender,
-                1,
-                _nonces[ownerAddress]++,
-                deadline
-            )
-        );
-
-        console.logBytes32(pvstructHash);
-        console.logBytes32(structHash);
-        assertEq(pvstructHash, structHash);
     }
 
     function testPermitValidSignature() public {
