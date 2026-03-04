@@ -7,6 +7,7 @@ import (
 
 	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 const (
@@ -177,10 +178,10 @@ func (a *AccountMsg) BroadcastTx(msgs ...sdk.Msg) (*sdk.TxResponse, error) {
 			res.Code, res.RawLog, account.cosmosAddress.String(), res.TxHash)
 	}
 
-	fmt.Printf("Transaction broadcast successfully\n")
-	fmt.Printf("  TxHash: %s\n", res.TxHash)
-	fmt.Printf("  Code: %d\n", res.Code)
-	fmt.Printf("  Gas Used: %d\n", res.GasUsed)
+	logger.Info("Transaction broadcast successfully")
+	logger.Info("  TxHash: %s", res.TxHash)
+	logger.Info("  Code: %d", res.Code)
+	logger.Info("  Gas Used: %d", res.GasUsed)
 
 	return res, nil
 }

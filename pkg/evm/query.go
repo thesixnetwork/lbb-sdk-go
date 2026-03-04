@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) common.Address {
@@ -31,7 +32,7 @@ func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) c
 	// Pack the function call
 	data, err := contractABI.Pack("ownerOf", big.NewInt(int64(tokenID)))
 	if err != nil {
-		fmt.Printf("failed to pack data: %v\n", err)
+		logger.Error("Failed to pack data: %v", err)
 		return currentOwner
 	}
 
@@ -40,19 +41,19 @@ func (e *EVMClient) TokenOwner(contractAddress common.Address, tokenID uint64) c
 		Data: data,
 	}, nil)
 	if err != nil {
-		fmt.Printf("failed to call contract: %v\n", err)
+		logger.Error("Failed to call contract: %v", err)
 		return currentOwner
 	}
 
-	var addressOutpu common.Address
+	var addressOutput common.Address
 
-	err = contractABI.UnpackIntoInterface(&addressOutpu, "ownerOf", result)
+	err = contractABI.UnpackIntoInterface(&addressOutput, "ownerOf", result)
 	if err != nil {
-		fmt.Printf("failed to call contract: %v\n", err)
+		logger.Error("Failed to unpack result: %v", err)
 		return currentOwner
 	}
 
-	return addressOutpu
+	return addressOutput
 }
 
 func (e *EVMClient) IsMinted(contractAddress common.Address, tokenID uint64) (bool, error) {

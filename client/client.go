@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/thesixnetwork/lbb-sdk-go/config"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 const (
@@ -197,7 +198,7 @@ func (c *Client) WaitForTransaction(txHash string) error {
 		return fmt.Errorf("transaction hash cannot be empty")
 	}
 
-	fmt.Printf("Waiting for transaction %s to be mined...\n", txHash)
+	logger.Debug("Waiting for transaction %s to be mined...", txHash)
 
 	ticker := time.NewTicker(transactionPollInterval)
 	defer ticker.Stop()
@@ -223,7 +224,7 @@ func (c *Client) WaitForTransaction(txHash string) error {
 				return fmt.Errorf("transaction %s failed with code %d: %s", txHash, output.Code, output.RawLog)
 			}
 
-			fmt.Printf("Transaction %s successfully mined in block %d\n", txHash, output.Height)
+			logger.Info("Transaction %s successfully mined in block %d", txHash, output.Height)
 			return nil
 		}
 	}
@@ -236,7 +237,7 @@ func (c *Client) WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, erro
 		return nil, fmt.Errorf("transaction hash cannot be empty")
 	}
 
-	fmt.Printf("Waiting for EVM transaction %s to be mined...\n", txHash.Hex())
+	logger.Debug("Waiting for EVM transaction %s to be mined...", txHash.Hex())
 
 	ticker := time.NewTicker(transactionPollInterval)
 	defer ticker.Stop()
@@ -258,7 +259,7 @@ func (c *Client) WaitForEVMTransaction(txHash common.Hash) (*types.Receipt, erro
 				return receipt, fmt.Errorf("transaction %s failed", txHash.Hex())
 			}
 
-			fmt.Printf("Transaction %s successfully mined in block %d\n", txHash.Hex(), receipt.BlockNumber.Uint64())
+			logger.Info("Transaction %s successfully mined in block %d", txHash.Hex(), receipt.BlockNumber.Uint64())
 			return receipt, nil
 		}
 	}

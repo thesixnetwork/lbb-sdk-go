@@ -4,41 +4,41 @@ import (
 	"context"
 	"fmt"
 
-	_ "cosmossdk.io/math"
-
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/client"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 func main() {
 	mnemonic, err := account.GenerateMnemonic()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to generate mnemonic: %v", err))
+		logger.Fatal("Failed to generate mnemonic: %v", err)
 	}
 
-	fmt.Println("Mnemonic generated")
-	fmt.Println("*Important** write this mnemonic phrase in a safe place.")
-	fmt.Println("It is the only way to recover your account if you ever forget your password.")
+	logger.Info("Mnemonic generated")
+	logger.Info("*Important** write this mnemonic phrase in a safe place.")
+	logger.Info("It is the only way to recover your account if you ever forget your password.")
 	fmt.Printf("\nMnemonic: %s\n\n", mnemonic)
-	fmt.Println("-----------------------------------------------------")
+	logger.Info("-----------------------------------------------------")
 
 	// Step 2: Initialize client (fivenet = testnet)
-	fmt.Println("Step 2: Connecting to network...")
+	logger.Info("Step 2: Connecting to network...")
 	ctx := context.Background()
 	client, err := client.NewClient(ctx, false)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create client: %v", err))
+		logger.Fatal("Failed to create client: %v", err)
 	}
-	fmt.Println("Connected to fivenet (testnet)")
+	logger.Info("Connected to fivenet (testnet)")
 	fmt.Println()
 
-	fmt.Println("Step 3: Creating account...")
+	logger.Info("Step 3: Creating account...")
 	acc, err := account.NewAccount(client, "my-account", mnemonic, "password")
 	if err != nil {
-		panic("ERROR CREATE ACCOUNT: NewAccount returned nil - check mnemonic and keyring initialization")
+		logger.Fatal("Failed to create account: %v", err)
 	}
 
-	fmt.Printf("Account created\n")
-	fmt.Printf("  EVM Address: %s\n", acc.GetEVMAddress().Hex())
-	fmt.Printf("  Cosmos Address: %s\n\n", acc.GetCosmosAddress().String())
+	logger.Info("Account created")
+	logger.Info("  EVM Address: %s", acc.GetEVMAddress().Hex())
+	logger.Info("  Cosmos Address: %s", acc.GetCosmosAddress().String())
+	fmt.Println()
 }

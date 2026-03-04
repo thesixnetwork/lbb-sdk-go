@@ -13,6 +13,7 @@ import (
 
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
 	incrementassets "github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets/increment"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 const (
@@ -86,8 +87,8 @@ func (e *EVMClient) SendTransaction(signedTx *types.Transaction) error {
 		return fmt.Errorf("failed to extract sender from transaction: %w", err)
 	}
 
-	fmt.Printf("Transaction Sender (from signature): %v\n", sender.Hex())
-	fmt.Printf("Broadcaster Address: %v\n", e.GetEVMAddress())
+	logger.Debug("Transaction Sender (from signature): %s", sender.Hex())
+	logger.Debug("Broadcaster Address: %s", e.GetEVMAddress().Hex())
 
 	err = ethClient.SendTransaction(goCtx, signedTx)
 	if err != nil {
@@ -299,7 +300,7 @@ func (e *EVMClient) MintCertificateNFT(contractAddress common.Address, tokenID u
 		Data: data,
 	})
 
-	fmt.Printf("Mint Gas Limit: %v \n", gasLimit)
+	logger.Debug("Mint Gas Limit: %d", gasLimit)
 
 	if err != nil {
 		return &types.Transaction{}, err
@@ -420,7 +421,7 @@ func (e *EVMClient) MintCertificateNFTToDestination(contractAddress common.Addre
 		Data: data,
 	})
 
-	fmt.Printf("Mint Gas Limit: %v \n", gasLimit)
+	logger.Debug("Mint Gas Limit: %d", gasLimit)
 
 	if err != nil {
 		return &types.Transaction{}, err

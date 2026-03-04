@@ -2,7 +2,6 @@ package evm
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 
 	"github.com/thesixnetwork/lbb-sdk-go/account"
 	"github.com/thesixnetwork/lbb-sdk-go/pkg/evm/assets"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 type EVMClient struct {
@@ -42,7 +42,7 @@ func (e *EVMClient) GasLimit(callMsg ethereum.CallMsg) (uint64, error) {
 
 	gasLimit, err := ethClient.EstimateGas(goCtx, callMsg)
 	if err != nil {
-		fmt.Printf("ERROR EstimateGas : %v \n", err)
+		logger.Error("Gas estimation failed: %v", err)
 		return gasLimit, err
 	}
 	gasLimit = gasLimit * 120 / 100
@@ -110,11 +110,11 @@ func (e *EVMClient) CheckTransactionReceipt(txHash common.Hash) error {
 		return fmt.Errorf("failed to get receipt: %w", err)
 	}
 
-	log.Printf("Transaction: %s\n", txHash.Hex())
-	log.Printf("  Block Number: %d\n", receipt.BlockNumber.Uint64())
-	log.Printf("  Status: %d (1=success, 0=failed)\n", receipt.Status)
-	log.Printf("  Gas Used: %d\n", receipt.GasUsed)
-	log.Printf("  Contract Address: %s\n", receipt.ContractAddress.Hex())
+	logger.Info("Transaction: %s", txHash.Hex())
+	logger.Info("  Block Number: %d", receipt.BlockNumber.Uint64())
+	logger.Info("  Status: %d (1=success, 0=failed)", receipt.Status)
+	logger.Info("  Gas Used: %d", receipt.GasUsed)
+	logger.Info("  Contract Address: %s", receipt.ContractAddress.Hex())
 
 	if receipt.Status == 0 {
 		return fmt.Errorf("transaction failed")

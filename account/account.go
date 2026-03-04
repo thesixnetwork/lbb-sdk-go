@@ -12,6 +12,7 @@ import (
 	bip39 "github.com/cosmos/go-bip39"
 
 	client "github.com/thesixnetwork/lbb-sdk-go/client"
+	"github.com/thesixnetwork/lbb-sdk-go/pkg/logger"
 )
 
 const (
@@ -93,9 +94,9 @@ func NewAccount(ctx client.ClientI, accountName, mnemonic, password string) (*Ac
 		return nil, fmt.Errorf("failed to create transactor for account '%s': %w", accountName, err)
 	}
 
-	fmt.Printf("Account '%s' created successfully\n", accountName)
-	fmt.Printf("  Cosmos Address: %s\n", cosmosAddress.String())
-	fmt.Printf("  EVM Address: %s\n", evmAddress.Hex())
+	logger.Info("Account '%s' created successfully", accountName)
+	logger.Info("  Cosmos Address: %s", cosmosAddress.String())
+	logger.Info("  EVM Address: %s", evmAddress.Hex())
 
 	return &Account{
 		client:        ctx,
@@ -149,7 +150,7 @@ func (a *Account) GetClient() client.ClientI {
 //	defer account.Close()  // Ensure cleanup
 //
 // Note: After calling Close(), the account should not be used for any operations
-func (a *Account) Close() error {
+func (a *Account) Close() {
 	// Zeroize private key
 	if a.privateKey != nil && a.privateKey.D != nil {
 		// Zero out the private key bytes
@@ -162,8 +163,6 @@ func (a *Account) Close() error {
 
 	// Clear auth transaction options
 	a.auth = nil
-
-	return nil
 }
 
 // ValidateMnemonic validates a BIP39 mnemonic phrase
