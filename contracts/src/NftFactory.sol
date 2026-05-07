@@ -21,17 +21,25 @@ error InvalidTokenOwner();
 
 /**
  * @title NftFactory
- * @dev ERC721 NFT contract with two-tier role management:
- *      - SuperAdmin: deploys the contract and can grant/revoke admin roles.
- *                   Has all admin privileges plus role management.
- *      - Admin:     can mint, burn, transfer tokens and update metadata.
+ * @dev ERC721 NFT contract with two-tier role management and backend-signature-authorised minting.
  *
- * Also supports EIP-2612 style gasless permit operations (inherited from LBBCert design).
+ * Roles:
+ *  - SuperAdmin: set at deployment; manages admin list and the mint signer address.
+ *  - Admin:      relayer wallets that submit mint transactions and pay gas.
+ *
+ * Minting model (EIP-712):
+ *  - The backend wallet (_mintSigner) signs a Mint / MintBatch struct off-chain.
+ *  - An admin submits the transaction on-chain with that signature.
+ *  - Both conditions must hold: caller is an admin AND signature comes from _mintSigner.
+ *
+ * Burn / Transfer:
+ *  - Token owners initiate burns and transfers via standard ERC721 or EIP-712 permit flows.
+ *  - No admin-forced overrides exist; all actions require the token owner's authorisation.
  *
  * Security notes:
  *  - Admin list uses swap-and-pop for O(1) removal without gaps.
- *  - adminBurn / adminTransfer bypass token-owner approval via internal _update(auth=0).
  *  - ReentrancyGuard is applied to all minting and transfer paths.
+ *  - Nonces are shared across Mint and Permit operations (per recipient / owner address).
  */
 contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, ReentrancyGuard {
     using Strings for uint256;
@@ -39,6 +47,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     // ============ State Variables ============
 
     address private _superAdmin;
+    address private _mintSigner;   // backend wallet that authorises every mint
     string private _baseTokenURI;
 
     mapping(address => bool) private _isAdminMap;
@@ -55,15 +64,20 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     bytes32 private constant PERMIT_FOR_ALL_TYPEHASH =
         keccak256("PermitForAll(address owner,address operator,bool approved,uint256 nonce,uint256 deadline)");
 
+    bytes32 private constant MINT_TYPEHASH =
+        keccak256("Mint(address to,uint256 tokenId,uint256 nonce,uint256 deadline)");
+
+    bytes32 private constant MINT_BATCH_TYPEHASH =
+        keccak256("MintBatch(address to,uint256[] tokenIds,uint256 nonce,uint256 deadline)");
+
     // ============ Events ============
 
     event AdminGranted(address indexed account, address indexed grantedBy);
     event AdminRevoked(address indexed account, address indexed revokedBy);
     event SuperAdminTransferred(address indexed previousSuperAdmin, address indexed newSuperAdmin);
+    event MintSignerUpdated(address indexed previousSigner, address indexed newSigner);
     event TokenMinted(address indexed to, uint256 indexed tokenId, address indexed mintedBy);
     event TokenBatchMinted(address indexed to, uint256[] tokenIds, address indexed mintedBy);
-    event TokenBurned(uint256 indexed tokenId, address indexed burnedBy);
-    event AdminTransfer(address indexed from, address indexed to, uint256 indexed tokenId, address transferredBy);
     event BaseURIUpdated(string newBaseURI, address indexed updatedBy);
     event PermitUsed(address indexed owner, address indexed spender, uint256 indexed tokenId);
     event PermitForAllUsed(address indexed owner, address indexed operator, bool approved);
@@ -89,15 +103,19 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
      * @param symbol     Token collection symbol.
      * @param baseURI    Initial base URI for token metadata.
      * @param superAdmin Address that receives the super admin role on deployment.
+     * @param mintSigner Backend wallet whose EIP-712 signature authorises every mint.
      */
     constructor(
         string memory name,
         string memory symbol,
         string memory baseURI,
-        address superAdmin
+        address superAdmin,
+        address mintSigner
     ) ERC721(name, symbol) EIP712(name, "1") {
         if (superAdmin == address(0)) revert ZeroAddressNotAllowed();
+        if (mintSigner == address(0)) revert ZeroAddressNotAllowed();
         _superAdmin = superAdmin;
+        _mintSigner = mintSigner;
         _baseTokenURI = baseURI;
     }
 
@@ -161,6 +179,13 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     }
 
     /**
+     * @dev Returns the backend wallet currently authorised to sign mint requests.
+     */
+    function getMintSigner() external view returns (address) {
+        return _mintSigner;
+    }
+
+    /**
      * @dev Returns true if `account` holds admin or super admin privileges.
      */
     function isAdmin(address account) external view returns (bool) {
@@ -182,55 +207,98 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         return _adminList.length;
     }
 
+    // ============ Super Admin — Mint Signer Management ============
+
+    /**
+     * @dev Replace the backend mint signer with `newSigner`. Only super admin can call.
+     *      Changing the signer immediately invalidates all previously issued off-chain
+     *      mint signatures that have not yet been submitted.
+     */
+    function setMintSigner(address newSigner) external onlySuperAdmin {
+        if (newSigner == address(0)) revert ZeroAddressNotAllowed();
+        address previous = _mintSigner;
+        _mintSigner = newSigner;
+        emit MintSignerUpdated(previous, newSigner);
+    }
+
     // ============ Admin — NFT Operations ============
 
     /**
-     * @dev Mint a single token to `to`. Callable by any admin or super admin.
+     * @dev Mint a single token to `to`.
+     *
+     * Dual-key security model:
+     *  - `msg.sender` must be an admin or super admin (on-chain gas payer / relayer).
+     *  - The signature (`v`, `r`, `s`) must be produced by `_mintSigner` over the
+     *    EIP-712 Mint struct: {to, tokenId, nonce, deadline}.
+     *
+     * Nonce used is `_nonces[to]`, shared with the permit functions.
+     * Nonce is incremented on success to prevent replay attacks.
      */
-    function safeMint(address to, uint256 tokenId) external onlyAdmin nonReentrant {
+    function safeMintWithSignature(
+        address to,
+        uint256 tokenId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external onlyAdmin nonReentrant {
         if (to == address(0)) revert ZeroAddressNotAllowed();
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        uint256 currentNonce = _nonces[to];
+        bytes32 structHash = keccak256(
+            abi.encode(MINT_TYPEHASH, to, tokenId, currentNonce, deadline)
+        );
+
+        address signer = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
+        if (signer != _mintSigner) revert InvalidSigner();
+
+        _nonces[to] = currentNonce + 1;
         _safeMint(to, tokenId);
         emit TokenMinted(to, tokenId, msg.sender);
     }
 
     /**
      * @dev Mint multiple tokens to `to` in one transaction.
-     *      Callable by any admin or super admin.
+     *
+     * A single signature covers the entire batch: the EIP-712 MintBatch struct
+     * encodes {to, tokenIds (hashed), nonce, deadline}.  One nonce is consumed
+     * for the whole batch, regardless of how many tokens are minted.
+     *
+     * Nonce used is `_nonces[to]`, shared with the permit functions.
      */
-    function safeMintBatch(address to, uint256[] calldata tokenIds) external onlyAdmin nonReentrant {
+    function safeMintBatchWithSignature(
+        address to,
+        uint256[] calldata tokenIds,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external onlyAdmin nonReentrant {
         if (to == address(0)) revert ZeroAddressNotAllowed();
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        uint256 currentNonce = _nonces[to];
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MINT_BATCH_TYPEHASH,
+                to,
+                keccak256(abi.encodePacked(tokenIds)), // EIP-712 encoding of uint256[]
+                currentNonce,
+                deadline
+            )
+        );
+
+        address signer = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
+        if (signer != _mintSigner) revert InvalidSigner();
+
+        _nonces[to] = currentNonce + 1;
         uint256 len = tokenIds.length;
         for (uint256 i = 0; i < len; ) {
             _safeMint(to, tokenIds[i]);
             unchecked { ++i; }
         }
         emit TokenBatchMinted(to, tokenIds, msg.sender);
-    }
-
-    /**
-     * @dev Admin forced burn — destroys a token without needing owner approval.
-     *      Bypasses the standard approval check by passing auth=address(0) to _update.
-     *      Callable by any admin or super admin.
-     */
-    function adminBurn(uint256 tokenId) external onlyAdmin {
-        _requireOwned(tokenId);
-        // Passing address(0) as auth skips the ERC721 authorization check
-        _update(address(0), tokenId, address(0));
-        emit TokenBurned(tokenId, msg.sender);
-    }
-
-    /**
-     * @dev Admin forced transfer — moves a token without owner approval.
-     *      Bypasses the standard approval check by passing auth=address(0) to _update.
-     *      Callable by any admin or super admin.
-     */
-    function adminTransfer(address from, address to, uint256 tokenId) external onlyAdmin nonReentrant {
-        if (to == address(0)) revert ZeroAddressNotAllowed();
-        address currentOwner = _requireOwned(tokenId);
-        if (currentOwner != from) revert InvalidTokenOwner();
-        // Passing address(0) as auth skips the ERC721 authorization check
-        _update(to, tokenId, address(0));
-        emit AdminTransfer(from, to, tokenId, msg.sender);
     }
 
     /**

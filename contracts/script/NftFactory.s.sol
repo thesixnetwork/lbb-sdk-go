@@ -5,32 +5,31 @@ import "forge-std/Script.sol";
 import {NftFactory} from "../src/NftFactory.sol";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Required environment variables
-//  PRIVATE_KEY   — deployer's private key (must hold SUPER_ADMIN role intent)
-//  SUPER_ADMIN   — address that will receive the super admin role
+//  Deploy NftFactory
 //
-//  Optional
-//  NFT_NAME      — collection name      (default: "LBB NFT")
-//  NFT_SYMBOL    — collection symbol    (default: "LNFT")
-//  NFT_BASE_URI  — base metadata URI   (default: "")
+//  Required env vars:
+//    PRIVATE_KEY    — deployer private key
+//    SUPER_ADMIN    — address that receives the super admin role
+//    MINT_SIGNER    — backend wallet address authorised to sign mint requests
+//
+//  Optional:
+//    NFT_NAME       — collection name     (default: "LBB NFT")
+//    NFT_SYMBOL     — collection symbol   (default: "LNFT")
+//    NFT_BASE_URI   — base metadata URI   (default: "")
 //
 //  Run:
 //    forge script contracts/script/NftFactory.s.sol:DeployNftFactory \
 //      --rpc-url <RPC_URL> --broadcast --verify
 // ─────────────────────────────────────────────────────────────────────────────
 contract DeployNftFactory is Script {
-    address superAdminAddress;
-
-    function setUp() public {
-        superAdminAddress = vm.envAddress("SUPER_ADMIN");
-    }
-
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address superAdminAddress  = vm.envAddress("SUPER_ADMIN");
+        address mintSignerAddress  = vm.envAddress("MINT_SIGNER");
 
-        string memory name     = vm.envOr("NFT_NAME",     string("LBB NFT"));
-        string memory symbol   = vm.envOr("NFT_SYMBOL",   string("LNFT"));
-        string memory baseURI  = vm.envOr("NFT_BASE_URI", string(""));
+        string memory name    = vm.envOr("NFT_NAME",     string("LBB NFT"));
+        string memory symbol  = vm.envOr("NFT_SYMBOL",   string("LNFT"));
+        string memory baseURI = vm.envOr("NFT_BASE_URI", string(""));
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -38,7 +37,8 @@ contract DeployNftFactory is Script {
             name,
             symbol,
             baseURI,
-            superAdminAddress
+            superAdminAddress,
+            mintSignerAddress
         );
 
         vm.stopBroadcast();
@@ -46,19 +46,19 @@ contract DeployNftFactory is Script {
         console.log("=== NftFactory Deployed ===");
         console.log("Contract address :", address(nftFactory));
         console.log("Super admin      :", nftFactory.getSuperAdmin());
+        console.log("Mint signer      :", nftFactory.getMintSigner());
         console.log("Name             :", nftFactory.name());
         console.log("Symbol           :", nftFactory.symbol());
-        console.log("Total supply     :", nftFactory.totalSupply());
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Grant admin role to a new address after deployment.
+//  Grant admin role to a new address.
 //
 //  Required env vars:
-//    PRIVATE_KEY        — super admin's private key
-//    NFT_FACTORY        — deployed NftFactory address
-//    ADMIN_ADDRESS      — address to be granted admin
+//    PRIVATE_KEY    — super admin private key
+//    NFT_FACTORY    — deployed NftFactory address
+//    ADMIN_ADDRESS  — address to grant admin role
 //
 //  Run:
 //    forge script contracts/script/NftFactory.s.sol:GrantAdminScript \
@@ -87,9 +87,9 @@ contract GrantAdminScript is Script {
 //  Revoke admin role from an address.
 //
 //  Required env vars:
-//    PRIVATE_KEY        — super admin's private key
-//    NFT_FACTORY        — deployed NftFactory address
-//    ADMIN_ADDRESS      — admin address to revoke
+//    PRIVATE_KEY    — super admin private key
+//    NFT_FACTORY    — deployed NftFactory address
+//    ADMIN_ADDRESS  — admin address to revoke
 //
 //  Run:
 //    forge script contracts/script/NftFactory.s.sol:RevokeAdminScript \
@@ -115,30 +115,86 @@ contract RevokeAdminScript is Script {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Mint a single token.
+//  Update the authorised mint signer (backend wallet).
 //
 //  Required env vars:
-//    PRIVATE_KEY   — admin or super admin private key
-//    NFT_FACTORY   — deployed NftFactory address
-//    MINT_TO       — recipient address
-//    TOKEN_ID      — token ID to mint
+//    PRIVATE_KEY    — super admin private key
+//    NFT_FACTORY    — deployed NftFactory address
+//    MINT_SIGNER    — new mint signer address
+//
+//  NOTE: Changing the signer immediately invalidates all previously issued
+//        off-chain Mint signatures that have not yet been submitted on-chain.
+//
+//  Run:
+//    forge script contracts/script/NftFactory.s.sol:SetMintSignerScript \
+//      --rpc-url <RPC_URL> --broadcast
+// ─────────────────────────────────────────────────────────────────────────────
+contract SetMintSignerScript is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address nftFactoryAddress  = vm.envAddress("NFT_FACTORY");
+        address newMintSigner      = vm.envAddress("MINT_SIGNER");
+
+        vm.startBroadcast(deployerPrivateKey);
+
+        NftFactory nftFactory = NftFactory(nftFactoryAddress);
+        nftFactory.setMintSigner(newMintSigner);
+
+        vm.stopBroadcast();
+
+        console.log("=== Mint Signer Updated ===");
+        console.log("New mint signer  :", nftFactory.getMintSigner());
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Mint a single token using a backend EIP-712 signature.
+//
+//  Required env vars:
+//    PRIVATE_KEY      — admin private key (pays gas, must hold admin role)
+//    MINT_SIGNER_KEY  — mint signer private key (signs the authorisation)
+//    NFT_FACTORY      — deployed NftFactory address
+//    MINT_TO          — recipient address
+//    TOKEN_ID         — token ID to mint
+//
+//  How it works:
+//    1. The script reads the current nonce for MINT_TO from the contract.
+//    2. It builds the EIP-712 Mint digest and signs it with MINT_SIGNER_KEY.
+//    3. It broadcasts safeMintWithSignature from the admin key.
 //
 //  Run:
 //    forge script contracts/script/NftFactory.s.sol:MintNftScript \
 //      --rpc-url <RPC_URL> --broadcast
 // ─────────────────────────────────────────────────────────────────────────────
 contract MintNftScript is Script {
-    function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address nftFactoryAddress  = vm.envAddress("NFT_FACTORY");
-        address mintTo             = vm.envAddress("MINT_TO");
-        uint256 tokenId            = vm.envUint("TOKEN_ID");
+    // Must match NftFactory.MINT_TYPEHASH
+    bytes32 private constant MINT_TYPEHASH =
+        keccak256("Mint(address to,uint256 tokenId,uint256 nonce,uint256 deadline)");
 
-        vm.startBroadcast(deployerPrivateKey);
+    function run() external {
+        uint256 adminPrivateKey      = vm.envUint("PRIVATE_KEY");
+        uint256 mintSignerPrivateKey = vm.envUint("MINT_SIGNER_KEY");
+        address nftFactoryAddress    = vm.envAddress("NFT_FACTORY");
+        address mintTo               = vm.envAddress("MINT_TO");
+        uint256 tokenId              = vm.envUint("TOKEN_ID");
+        uint256 deadline             = block.timestamp + 1 hours;
 
         NftFactory nftFactory = NftFactory(nftFactoryAddress);
-        nftFactory.safeMint(mintTo, tokenId);
 
+        // Build EIP-712 digest — must mirror safeMintWithSignature verification logic
+        uint256 currentNonce = nftFactory.nonces(mintTo);
+        bytes32 structHash   = keccak256(
+            abi.encode(MINT_TYPEHASH, mintTo, tokenId, currentNonce, deadline)
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", nftFactory.DOMAIN_SEPARATOR(), structHash)
+        );
+
+        // Mint signer signs off-chain; admin broadcasts on-chain
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPrivateKey, digest);
+
+        vm.startBroadcast(adminPrivateKey);
+        nftFactory.safeMintWithSignature(mintTo, tokenId, deadline, v, r, s);
         vm.stopBroadcast();
 
         console.log("=== Token Minted ===");
@@ -147,3 +203,73 @@ contract MintNftScript is Script {
         console.log("Total supply     :", nftFactory.totalSupply());
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Mint a sequential batch of tokens using a backend EIP-712 signature.
+//
+//  Required env vars:
+//    PRIVATE_KEY      — admin private key (pays gas, must hold admin role)
+//    MINT_SIGNER_KEY  — mint signer private key (signs the authorisation)
+//    NFT_FACTORY      — deployed NftFactory address
+//    MINT_TO          — recipient address
+//    START_TOKEN_ID   — first token ID in the batch
+//    TOKEN_COUNT      — number of sequential tokens to mint
+//                       (mints START_TOKEN_ID .. START_TOKEN_ID + TOKEN_COUNT - 1)
+//
+//  Run:
+//    forge script contracts/script/NftFactory.s.sol:MintBatchNftScript \
+//      --rpc-url <RPC_URL> --broadcast
+// ─────────────────────────────────────────────────────────────────────────────
+contract MintBatchNftScript is Script {
+    // Must match NftFactory.MINT_BATCH_TYPEHASH
+    bytes32 private constant MINT_BATCH_TYPEHASH =
+        keccak256("MintBatch(address to,uint256[] tokenIds,uint256 nonce,uint256 deadline)");
+
+    function run() external {
+        uint256 adminPrivateKey      = vm.envUint("PRIVATE_KEY");
+        uint256 mintSignerPrivateKey = vm.envUint("MINT_SIGNER_KEY");
+        address nftFactoryAddress    = vm.envAddress("NFT_FACTORY");
+        address mintTo               = vm.envAddress("MINT_TO");
+        uint256 startTokenId         = vm.envUint("START_TOKEN_ID");
+        uint256 tokenCount           = vm.envUint("TOKEN_COUNT");
+        uint256 deadline             = block.timestamp + 1 hours;
+
+        NftFactory nftFactory = NftFactory(nftFactoryAddress);
+
+        // Build sequential token ID array
+        uint256[] memory tokenIds = new uint256[](tokenCount);
+        for (uint256 i = 0; i < tokenCount; ) {
+            tokenIds[i] = startTokenId + i;
+            unchecked { ++i; }
+        }
+
+        // Build EIP-712 digest — must mirror safeMintBatchWithSignature verification logic
+        // uint256[] is encoded as keccak256(abi.encodePacked(elements)) per EIP-712 spec
+        uint256 currentNonce = nftFactory.nonces(mintTo);
+        bytes32 structHash   = keccak256(
+            abi.encode(
+                MINT_BATCH_TYPEHASH,
+                mintTo,
+                keccak256(abi.encodePacked(tokenIds)),
+                currentNonce,
+                deadline
+            )
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", nftFactory.DOMAIN_SEPARATOR(), structHash)
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPrivateKey, digest);
+
+        vm.startBroadcast(adminPrivateKey);
+        nftFactory.safeMintBatchWithSignature(mintTo, tokenIds, deadline, v, r, s);
+        vm.stopBroadcast();
+
+        console.log("=== Batch Minted ===");
+        console.log("Recipient        :", mintTo);
+        console.log("First token ID   :", startTokenId);
+        console.log("Count            :", tokenCount);
+        console.log("Total supply     :", nftFactory.totalSupply());
+    }
+}
+
