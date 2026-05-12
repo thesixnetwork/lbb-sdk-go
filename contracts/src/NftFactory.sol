@@ -5,6 +5,7 @@ import {ERC721} from "openzeppelin-contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "openzeppelin-contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {ERC721Burnable} from "openzeppelin-contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
+import {Base64} from "openzeppelin-contracts/utils/Base64.sol";
 import {ECDSA} from "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "openzeppelin-contracts/utils/cryptography/EIP712.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/utils/ReentrancyGuard.sol";
@@ -48,13 +49,22 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
 
     address private _superAdmin;
     address private _mintSigner;   // backend wallet that authorises every mint
-    string private _baseTokenURI;
 
     mapping(address => bool) private _isAdminMap;
     address[] private _adminList;
     mapping(address => uint256) private _adminListIndex; // 0-based index into _adminList
 
     mapping(address => uint256) private _nonces;
+
+    // ============ On-chain Metadata ============
+
+    struct TokenData {
+        string name;
+        string certID;
+        uint256 createdAt;
+    }
+
+    mapping(uint256 => TokenData) private _tokenMetadata;
 
     // ============ EIP-712 Type Hashes ============
 
@@ -65,10 +75,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         keccak256("PermitForAll(address owner,address operator,bool approved,uint256 nonce,uint256 deadline)");
 
     bytes32 private constant MINT_TYPEHASH =
-        keccak256("Mint(address to,uint256 tokenId,uint256 nonce,uint256 deadline)");
-
-    bytes32 private constant MINT_BATCH_TYPEHASH =
-        keccak256("MintBatch(address to,uint256[] tokenIds,uint256 nonce,uint256 deadline)");
+        keccak256("Mint(address to,uint256 tokenId,string name,string certID,uint256 createdAt,uint256 nonce,uint256 deadline)");
 
     // ============ Events ============
 
@@ -76,9 +83,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     event AdminRevoked(address indexed account, address indexed revokedBy);
     event SuperAdminTransferred(address indexed previousSuperAdmin, address indexed newSuperAdmin);
     event MintSignerUpdated(address indexed previousSigner, address indexed newSigner);
-    event TokenMinted(address indexed to, uint256 indexed tokenId, address indexed mintedBy);
-    event TokenBatchMinted(address indexed to, uint256[] tokenIds, address indexed mintedBy);
-    event BaseURIUpdated(string newBaseURI, address indexed updatedBy);
+    event TokenMinted(address indexed to, uint256 indexed tokenId, string certID, address indexed mintedBy);
     event PermitUsed(address indexed owner, address indexed spender, uint256 indexed tokenId);
     event PermitForAllUsed(address indexed owner, address indexed operator, bool approved);
 
@@ -101,14 +106,12 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     /**
      * @param name       Token collection name (also used in EIP-712 domain separator).
      * @param symbol     Token collection symbol.
-     * @param baseURI    Initial base URI for token metadata.
      * @param superAdmin Address that receives the super admin role on deployment.
      * @param mintSigner Backend wallet whose EIP-712 signature authorises every mint.
      */
     constructor(
         string memory name,
         string memory symbol,
-        string memory baseURI,
         address superAdmin,
         address mintSigner
     ) ERC721(name, symbol) EIP712(name, "1") {
@@ -116,7 +119,6 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         if (mintSigner == address(0)) revert ZeroAddressNotAllowed();
         _superAdmin = superAdmin;
         _mintSigner = mintSigner;
-        _baseTokenURI = baseURI;
     }
 
     // ============ Super Admin — Role Management ============
@@ -224,12 +226,12 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     // ============ Admin — NFT Operations ============
 
     /**
-     * @dev Mint a single token to `to`.
+     * @dev Mint a single token to `to` with on-chain certificate metadata.
      *
      * Dual-key security model:
      *  - `msg.sender` must be an admin or super admin (on-chain gas payer / relayer).
      *  - The signature (`v`, `r`, `s`) must be produced by `_mintSigner` over the
-     *    EIP-712 Mint struct: {to, tokenId, nonce, deadline}.
+     *    EIP-712 Mint struct: {to, tokenId, name, certID, createdAt, nonce, deadline}.
      *
      * Nonce used is `_nonces[to]`, shared with the permit functions.
      * Nonce is incremented on success to prevent replay attacks.
@@ -237,6 +239,9 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     function safeMintWithSignature(
         address to,
         uint256 tokenId,
+        string calldata name,
+        string calldata certID,
+        uint256 createdAt,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -245,86 +250,61 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         if (to == address(0)) revert ZeroAddressNotAllowed();
         if (block.timestamp > deadline) revert SignatureExpired();
 
-        uint256 currentNonce = _nonces[to];
-        bytes32 structHash = keccak256(
-            abi.encode(MINT_TYPEHASH, to, tokenId, currentNonce, deadline)
-        );
-
-        address signer = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
-        if (signer != _mintSigner) revert InvalidSigner();
-
-        _nonces[to] = currentNonce + 1;
-        _safeMint(to, tokenId);
-        emit TokenMinted(to, tokenId, msg.sender);
-    }
-
-    /**
-     * @dev Mint multiple tokens to `to` in one transaction.
-     *
-     * A single signature covers the entire batch: the EIP-712 MintBatch struct
-     * encodes {to, tokenIds (hashed), nonce, deadline}.  One nonce is consumed
-     * for the whole batch, regardless of how many tokens are minted.
-     *
-     * Nonce used is `_nonces[to]`, shared with the permit functions.
-     */
-    function safeMintBatchWithSignature(
-        address to,
-        uint256[] calldata tokenIds,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external onlyAdmin nonReentrant {
-        if (to == address(0)) revert ZeroAddressNotAllowed();
-        if (block.timestamp > deadline) revert SignatureExpired();
-
-        uint256 currentNonce = _nonces[to];
-        bytes32 structHash = keccak256(
-            abi.encode(
-                MINT_BATCH_TYPEHASH,
-                to,
-                keccak256(abi.encodePacked(tokenIds)), // EIP-712 encoding of uint256[]
-                currentNonce,
-                deadline
-            )
-        );
-
-        address signer = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
-        if (signer != _mintSigner) revert InvalidSigner();
-
-        _nonces[to] = currentNonce + 1;
-        uint256 len = tokenIds.length;
-        for (uint256 i = 0; i < len; ) {
-            _safeMint(to, tokenIds[i]);
-            unchecked { ++i; }
+        // Scoped block to keep stack depth under the EVM limit.
+        {
+            uint256 currentNonce = _nonces[to];
+            bytes32 structHash = keccak256(
+                abi.encode(
+                    MINT_TYPEHASH,
+                    to,
+                    tokenId,
+                    keccak256(bytes(name)),
+                    keccak256(bytes(certID)),
+                    createdAt,
+                    currentNonce,
+                    deadline
+                )
+            );
+            if (ECDSA.recover(_hashTypedDataV4(structHash), v, r, s) != _mintSigner)
+                revert InvalidSigner();
+            _nonces[to] = currentNonce + 1;
         }
-        emit TokenBatchMinted(to, tokenIds, msg.sender);
-    }
 
-    /**
-     * @dev Update the base metadata URI for all tokens.
-     *      Callable by any admin or super admin.
-     */
-    function setBaseURI(string calldata baseURI) external onlyAdmin {
-        _baseTokenURI = baseURI;
-        emit BaseURIUpdated(baseURI, msg.sender);
+        _tokenMetadata[tokenId] = TokenData(name, certID, createdAt);
+        _safeMint(to, tokenId);
+        emit TokenMinted(to, tokenId, certID, msg.sender);
     }
 
     // ============ Read — Token Metadata ============
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return _baseTokenURI;
+    /**
+     * @dev Returns the raw on-chain metadata stored for `tokenId`.
+     */
+    function getTokenData(uint256 tokenId) external view returns (TokenData memory) {
+        _requireOwned(tokenId);
+        return _tokenMetadata[tokenId];
     }
 
     /**
-     * @dev Returns the full metadata URI for `tokenId`.
-     *      Reverts with ERC721NonexistentToken if the token does not exist.
+     * @dev Returns a Base64-encoded JSON metadata URI for `tokenId`.
+     *      Format: data:application/json;base64,<encoded JSON>
      */
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireOwned(tokenId);
-        return bytes(_baseTokenURI).length > 0
-            ? string(abi.encodePacked(_baseTokenURI, tokenId.toString()))
-            : "";
+        TokenData memory data = _tokenMetadata[tokenId];
+
+        string memory json = string(abi.encodePacked(
+            '{"name":"', data.name,
+            '","description":"Certificate NFT","attributes":[',
+            '{"trait_type":"Certificate ID","value":"', data.certID, '"},',
+            '{"display_type":"date","trait_type":"Created At","value":', Strings.toString(data.createdAt), '}',
+            ']}'
+        ));
+
+        return string(abi.encodePacked(
+            "data:application/json;base64,",
+            Base64.encode(bytes(json))
+        ));
     }
 
     // ============ EIP-2612 Style Permit Functions ============

@@ -15,7 +15,6 @@ import {NftFactory} from "../src/NftFactory.sol";
 //  Optional:
 //    NFT_NAME       — collection name     (default: "LBB NFT")
 //    NFT_SYMBOL     — collection symbol   (default: "LNFT")
-//    NFT_BASE_URI   — base metadata URI   (default: "")
 //
 //  Run:
 //    forge script contracts/script/NftFactory.s.sol:DeployNftFactory \
@@ -27,16 +26,14 @@ contract DeployNftFactory is Script {
         address superAdminAddress  = vm.envAddress("SUPER_ADMIN");
         address mintSignerAddress  = vm.envAddress("MINT_SIGNER");
 
-        string memory name    = vm.envOr("NFT_NAME",     string("LBB NFT"));
-        string memory symbol  = vm.envOr("NFT_SYMBOL",   string("LNFT"));
-        string memory baseURI = vm.envOr("NFT_BASE_URI", string(""));
+        string memory name   = vm.envOr("NFT_NAME",   string("LBB NFT"));
+        string memory symbol = vm.envOr("NFT_SYMBOL", string("LNFT"));
 
         vm.startBroadcast(deployerPrivateKey);
 
         NftFactory nftFactory = new NftFactory(
             name,
             symbol,
-            baseURI,
             superAdminAddress,
             mintSignerAddress
         );
@@ -156,6 +153,9 @@ contract SetMintSignerScript is Script {
 //    NFT_FACTORY      — deployed NftFactory address
 //    MINT_TO          — recipient address
 //    TOKEN_ID         — token ID to mint
+//    CERT_NAME        — certificate name stored on-chain
+//    CERT_ID          — certificate ID stored on-chain
+//    CREATED_AT       — unix timestamp (uint256) for certificate creation date
 //
 //  How it works:
 //    1. The script reads the current nonce for MINT_TO from the contract.
@@ -169,106 +169,57 @@ contract SetMintSignerScript is Script {
 contract MintNftScript is Script {
     // Must match NftFactory.MINT_TYPEHASH
     bytes32 private constant MINT_TYPEHASH =
-        keccak256("Mint(address to,uint256 tokenId,uint256 nonce,uint256 deadline)");
+        keccak256("Mint(address to,uint256 tokenId,string name,string certID,uint256 createdAt,uint256 nonce,uint256 deadline)");
+
+    struct MintParams {
+        address mintTo;
+        uint256 tokenId;
+        string certName;
+        string certID;
+        uint256 createdAt;
+        uint256 deadline;
+    }
+
+    function _buildDigest(NftFactory nftFactory, MintParams memory p) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MINT_TYPEHASH,
+                p.mintTo,
+                p.tokenId,
+                keccak256(bytes(p.certName)),
+                keccak256(bytes(p.certID)),
+                p.createdAt,
+                nftFactory.nonces(p.mintTo),
+                p.deadline
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", nftFactory.DOMAIN_SEPARATOR(), structHash));
+    }
 
     function run() external {
         uint256 adminPrivateKey      = vm.envUint("PRIVATE_KEY");
         uint256 mintSignerPrivateKey = vm.envUint("MINT_SIGNER_KEY");
-        address nftFactoryAddress    = vm.envAddress("NFT_FACTORY");
-        address mintTo               = vm.envAddress("MINT_TO");
-        uint256 tokenId              = vm.envUint("TOKEN_ID");
-        uint256 deadline             = block.timestamp + 1 hours;
+        NftFactory nftFactory        = NftFactory(vm.envAddress("NFT_FACTORY"));
 
-        NftFactory nftFactory = NftFactory(nftFactoryAddress);
+        MintParams memory p = MintParams({
+            mintTo:    vm.envAddress("MINT_TO"),
+            tokenId:   vm.envUint("TOKEN_ID"),
+            certName:  vm.envString("CERT_NAME"),
+            certID:    vm.envString("CERT_ID"),
+            createdAt: vm.envUint("CREATED_AT"),
+            deadline:  block.timestamp + 1 hours
+        });
 
-        // Build EIP-712 digest — must mirror safeMintWithSignature verification logic
-        uint256 currentNonce = nftFactory.nonces(mintTo);
-        bytes32 structHash   = keccak256(
-            abi.encode(MINT_TYPEHASH, mintTo, tokenId, currentNonce, deadline)
-        );
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", nftFactory.DOMAIN_SEPARATOR(), structHash)
-        );
-
-        // Mint signer signs off-chain; admin broadcasts on-chain
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPrivateKey, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPrivateKey, _buildDigest(nftFactory, p));
 
         vm.startBroadcast(adminPrivateKey);
-        nftFactory.safeMintWithSignature(mintTo, tokenId, deadline, v, r, s);
+        nftFactory.safeMintWithSignature(p.mintTo, p.tokenId, p.certName, p.certID, p.createdAt, p.deadline, v, r, s);
         vm.stopBroadcast();
 
         console.log("=== Token Minted ===");
-        console.log("Token ID         :", tokenId);
-        console.log("Owner            :", nftFactory.ownerOf(tokenId));
-        console.log("Total supply     :", nftFactory.totalSupply());
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Mint a sequential batch of tokens using a backend EIP-712 signature.
-//
-//  Required env vars:
-//    PRIVATE_KEY      — admin private key (pays gas, must hold admin role)
-//    MINT_SIGNER_KEY  — mint signer private key (signs the authorisation)
-//    NFT_FACTORY      — deployed NftFactory address
-//    MINT_TO          — recipient address
-//    START_TOKEN_ID   — first token ID in the batch
-//    TOKEN_COUNT      — number of sequential tokens to mint
-//                       (mints START_TOKEN_ID .. START_TOKEN_ID + TOKEN_COUNT - 1)
-//
-//  Run:
-//    forge script contracts/script/NftFactory.s.sol:MintBatchNftScript \
-//      --rpc-url <RPC_URL> --broadcast
-// ─────────────────────────────────────────────────────────────────────────────
-contract MintBatchNftScript is Script {
-    // Must match NftFactory.MINT_BATCH_TYPEHASH
-    bytes32 private constant MINT_BATCH_TYPEHASH =
-        keccak256("MintBatch(address to,uint256[] tokenIds,uint256 nonce,uint256 deadline)");
-
-    function run() external {
-        uint256 adminPrivateKey      = vm.envUint("PRIVATE_KEY");
-        uint256 mintSignerPrivateKey = vm.envUint("MINT_SIGNER_KEY");
-        address nftFactoryAddress    = vm.envAddress("NFT_FACTORY");
-        address mintTo               = vm.envAddress("MINT_TO");
-        uint256 startTokenId         = vm.envUint("START_TOKEN_ID");
-        uint256 tokenCount           = vm.envUint("TOKEN_COUNT");
-        uint256 deadline             = block.timestamp + 1 hours;
-
-        NftFactory nftFactory = NftFactory(nftFactoryAddress);
-
-        // Build sequential token ID array
-        uint256[] memory tokenIds = new uint256[](tokenCount);
-        for (uint256 i = 0; i < tokenCount; ) {
-            tokenIds[i] = startTokenId + i;
-            unchecked { ++i; }
-        }
-
-        // Build EIP-712 digest — must mirror safeMintBatchWithSignature verification logic
-        // uint256[] is encoded as keccak256(abi.encodePacked(elements)) per EIP-712 spec
-        uint256 currentNonce = nftFactory.nonces(mintTo);
-        bytes32 structHash   = keccak256(
-            abi.encode(
-                MINT_BATCH_TYPEHASH,
-                mintTo,
-                keccak256(abi.encodePacked(tokenIds)),
-                currentNonce,
-                deadline
-            )
-        );
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", nftFactory.DOMAIN_SEPARATOR(), structHash)
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPrivateKey, digest);
-
-        vm.startBroadcast(adminPrivateKey);
-        nftFactory.safeMintBatchWithSignature(mintTo, tokenIds, deadline, v, r, s);
-        vm.stopBroadcast();
-
-        console.log("=== Batch Minted ===");
-        console.log("Recipient        :", mintTo);
-        console.log("First token ID   :", startTokenId);
-        console.log("Count            :", tokenCount);
+        console.log("Token ID         :", p.tokenId);
+        console.log("Owner            :", nftFactory.ownerOf(p.tokenId));
+        console.log("Cert ID          :", p.certID);
         console.log("Total supply     :", nftFactory.totalSupply());
     }
 }
