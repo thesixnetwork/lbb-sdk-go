@@ -76,6 +76,8 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     event SuperAdminTransferred(address indexed previousSuperAdmin, address indexed newSuperAdmin);
     event MintSignerUpdated(address indexed previousSigner, address indexed newSigner);
     event TokenMinted(address indexed to, uint256 indexed tokenId, string metadataBase64, address[] approvers, address indexed mintedBy);
+    event TokenTransferWithPermit(address indexed from, address indexed to, uint256 indexed tokenId, address relayer);
+    event TokenBurnWithPermit(address indexed from, uint256 indexed tokenId, address relayer);
     event PermitUsed(address indexed owner, address indexed spender, uint256 indexed tokenId);
     event PermitForAllUsed(address indexed owner, address indexed operator, bool approved);
 
@@ -379,6 +381,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         if (ownerOf(tokenId) != from) revert InvalidTokenOwner();
         permit(from, msg.sender, tokenId, deadline, v, r, s);
         safeTransferFrom(from, to, tokenId);
+        emit TokenTransferWithPermit(from, to, tokenId, msg.sender);
     }
 
     /**
@@ -396,6 +399,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         if (ownerOf(tokenId) != from) revert InvalidTokenOwner();
         permit(from, msg.sender, tokenId, deadline, v, r, s);
         burn(tokenId);
+        emit TokenBurnWithPermit(from, tokenId, msg.sender);
     }
 
     // ============ Required Overrides ============
