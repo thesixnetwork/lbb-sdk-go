@@ -4,8 +4,6 @@ pragma solidity ^0.8.20;
 import {ERC721} from "openzeppelin-contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "openzeppelin-contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {ERC721Burnable} from "openzeppelin-contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
-import {Base64} from "openzeppelin-contracts/utils/Base64.sol";
 import {ECDSA} from "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "openzeppelin-contracts/utils/cryptography/EIP712.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/utils/ReentrancyGuard.sol";
@@ -43,7 +41,6 @@ error InvalidTokenOwner();
  *  - Nonces are shared across Mint and Permit operations (per recipient / owner address).
  */
 contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, ReentrancyGuard {
-    using Strings for uint256;
 
     // ============ State Variables ============
 
@@ -58,13 +55,8 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
 
     // ============ On-chain Metadata ============
 
-    struct TokenData {
-        string name;
-        string certID;
-        uint256 createdAt;
-    }
-
-    mapping(uint256 => TokenData) private _tokenMetadata;
+    /// @dev Stores the pre-encoded Base64 JSON metadata string supplied at mint time.
+    mapping(uint256 => string) private _tokenMetadataBase64;
 
     // ============ EIP-712 Type Hashes ============
 
@@ -75,7 +67,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
         keccak256("PermitForAll(address owner,address operator,bool approved,uint256 nonce,uint256 deadline)");
 
     bytes32 private constant MINT_TYPEHASH =
-        keccak256("Mint(address to,uint256 tokenId,string name,string certID,uint256 createdAt,uint256 nonce,uint256 deadline)");
+        keccak256("Mint(address to,uint256 tokenId,string metadataBase64,uint256 nonce,uint256 deadline)");
 
     // ============ Events ============
 
@@ -83,7 +75,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     event AdminRevoked(address indexed account, address indexed revokedBy);
     event SuperAdminTransferred(address indexed previousSuperAdmin, address indexed newSuperAdmin);
     event MintSignerUpdated(address indexed previousSigner, address indexed newSigner);
-    event TokenMinted(address indexed to, uint256 indexed tokenId, string certID, address indexed mintedBy);
+    event TokenMinted(address indexed to, uint256 indexed tokenId, string metadataBase64, address[] approvers, address indexed mintedBy);
     event PermitUsed(address indexed owner, address indexed spender, uint256 indexed tokenId);
     event PermitForAllUsed(address indexed owner, address indexed operator, bool approved);
 
@@ -226,12 +218,15 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     // ============ Admin — NFT Operations ============
 
     /**
-     * @dev Mint a single token to `to` with on-chain certificate metadata.
+     * @dev Mint a single token to `to` with pre-encoded Base64 metadata.
      *
      * Dual-key security model:
      *  - `msg.sender` must be an admin or super admin (on-chain gas payer / relayer).
      *  - The signature (`v`, `r`, `s`) must be produced by `_mintSigner` over the
-     *    EIP-712 Mint struct: {to, tokenId, name, certID, createdAt, nonce, deadline}.
+     *    EIP-712 Mint struct: {to, tokenId, metadataBase64, nonce, deadline}.
+     *
+     * `approvers` is an off-chain audit trail of backend addresses that approved this
+     * mint before submission; it is emitted in `TokenMinted` but not verified on-chain.
      *
      * Nonce used is `_nonces[to]`, shared with the permit functions.
      * Nonce is incremented on success to prevent replay attacks.
@@ -239,9 +234,8 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
     function safeMintWithSignature(
         address to,
         uint256 tokenId,
-        string calldata name,
-        string calldata certID,
-        uint256 createdAt,
+        string calldata metadataBase64,
+        address[] calldata approvers,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -258,9 +252,7 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
                     MINT_TYPEHASH,
                     to,
                     tokenId,
-                    keccak256(bytes(name)),
-                    keccak256(bytes(certID)),
-                    createdAt,
+                    keccak256(bytes(metadataBase64)),
                     currentNonce,
                     deadline
                 )
@@ -270,41 +262,28 @@ contract NftFactory is ERC721, ERC721Enumerable, ERC721Burnable, EIP712, Reentra
             _nonces[to] = currentNonce + 1;
         }
 
-        _tokenMetadata[tokenId] = TokenData(name, certID, createdAt);
+        _tokenMetadataBase64[tokenId] = metadataBase64;
         _safeMint(to, tokenId);
-        emit TokenMinted(to, tokenId, certID, msg.sender);
+        emit TokenMinted(to, tokenId, metadataBase64, approvers, msg.sender);
     }
 
     // ============ Read — Token Metadata ============
 
     /**
-     * @dev Returns the raw on-chain metadata stored for `tokenId`.
+     * @dev Returns the raw Base64-encoded metadata string stored for `tokenId`.
      */
-    function getTokenData(uint256 tokenId) external view returns (TokenData memory) {
+    function getTokenMetadata(uint256 tokenId) external view returns (string memory) {
         _requireOwned(tokenId);
-        return _tokenMetadata[tokenId];
+        return _tokenMetadataBase64[tokenId];
     }
 
     /**
-     * @dev Returns a Base64-encoded JSON metadata URI for `tokenId`.
-     *      Format: data:application/json;base64,<encoded JSON>
+     * @dev Returns the metadata URI for `tokenId` prefixed for use as a data URI.
+     *      The stored string must be a valid Base64-encoded JSON payload.
      */
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireOwned(tokenId);
-        TokenData memory data = _tokenMetadata[tokenId];
-
-        string memory json = string(abi.encodePacked(
-            '{"name":"', data.name,
-            '","description":"Certificate NFT","attributes":[',
-            '{"trait_type":"Certificate ID","value":"', data.certID, '"},',
-            '{"display_type":"date","trait_type":"Created At","value":', Strings.toString(data.createdAt), '}',
-            ']}'
-        ));
-
-        return string(abi.encodePacked(
-            "data:application/json;base64,",
-            Base64.encode(bytes(json))
-        ));
+        return string(abi.encodePacked("data:application/json;base64,", _tokenMetadataBase64[tokenId]));
     }
 
     // ============ EIP-2612 Style Permit Functions ============
